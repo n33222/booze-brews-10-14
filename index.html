@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Booze & Brews — Wizard Night</title>
+<style>
+  body { margin:0; background:#0b0f1f; color:#fff; font-family:sans-serif; }
+  canvas { display:block; margin:0 auto; background:#111; border:2px solid #444; border-radius:12px; }
+  .hud { display:flex; justify-content:space-between; max-width:960px; margin:10px auto; }
+  .pill { background:rgba(255,255,255,.1); padding:6px 12px; border-radius:999px; }
+  #logo { position:absolute; top:10px; left:10px; width:100px; opacity:0.9; }
+</style>
+</head>
+<body>
+<img id="logo" src="assets/logo.png" alt="logo">
+<div class="hud">
+  <div class="pill">⏱ Time <span id="time">45</span>s</div>
+  <div class="pill">⭐ Score <span id="score">0</span></div>
+  <div class="pill">🏆 Combo <span id="combo">x0</span></div>
+</div>
+<canvas id="game" width="960" height="540"></canvas>
+<button id="startBtn">Start Game</button>
+
+<script>
+// ====== REWARDS SETTINGS ======
+const REWARDS = [
+  { condition: (score) => score < 200, prize: "Free Shot" },
+  { condition: (score) => score >= 200 && score < 500, prize: "10% OFF This Cocktail" },
+  { condition: (score) => score >= 500, prize: "A Whole Bottle of Liquor", limit: 3 }
+];
+
+// TODO: Add game logic, phases, snitch, sorting, leaderboard, sounds
+</script>
+</body>
+</html>
