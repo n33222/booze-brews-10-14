@@ -1,51 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
 <title>Booze & Brews — Wizard Night</title>
 <style>
   :root{
     --bg:#0b0f1f; --panel:#0e142a; --line:rgba(255,255,255,.18);
     --txt:#e6e8ee; --muted:#aab0c0;
-    /* house accent colors */
-    --lion:#b71c1c; --lion2:#f1b31c;      /* red + gold */
-    --serpent:#0b8a55; --serpent2:#c0c9c5;/* green + silver */
-    --raven:#1f4aa8; --raven2:#c0843d;    /* blue + copper */
-    --badger:#d4a500; --badger2:#0d0d0d;  /* yellow + black */
+    --lion:#b71c1c; --serpent:#0b8a55; --raven:#1f4aa8; --badger:#d4a500;
     --accent1:#7c3aed; --accent2:#0ea5e9;
   }
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
   .wrap{max-width:980px;margin:0 auto;padding:14px}
-  h1{margin:.3rem 0 0.6rem;text-align:center;letter-spacing:.5px}
-  .hud{display:flex;gap:10px;justify-content:space-between;align-items:center;margin:6px 0 10px}
-  .pill{padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line);font-weight:800}
+  h1{margin:.3rem 0 .6rem;text-align:center}
+  .hud{display:flex;gap:10px;justify-content:space-between;align-items:center;margin:6px 0 10px;flex-wrap:wrap}
+  .pill{padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.08);
+    border:1px solid var(--line);font-weight:800}
   .controls{display:flex;gap:10px;align-items:center}
-  .btn{padding:10px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--accent2),var(--accent1));color:#fff;font-weight:800;cursor:pointer}
+  .btn{padding:10px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--accent2),var(--accent1));
+    color:#fff;font-weight:800;cursor:pointer}
   .btn[disabled]{opacity:.55;filter:saturate(.6);cursor:not-allowed}
-  /* canvas box */
-  .stage{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px}
-  canvas{width:100%;height:auto;border-radius:10px;background:#0f172a}
-  /* logo overlay */
+  .stage{background:#0f172a;border:1px solid var(--line);border-radius:14px;padding:8px}
+  canvas{width:100%;height:auto;border-radius:10px;background:#0a1024; touch-action:none;}
   #brand{position:fixed;left:10px;top:10px;width:96px;opacity:.9;mix-blend-mode:screen;filter:invert(1);pointer-events:none}
-  /* leaderboard */
   .card{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px}
   ul.list{list-style:none;margin:0;padding:0}
   ul.list li{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px dashed var(--line)}
   .muted{color:var(--muted)}
-  /* modal */
   .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:1000;align-items:center;justify-content:center}
-  .modal{width:min(92%,420px);background:#1f2937;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:center}
+  .modal{width:min(92%,420px);background:#1f2937;border:1px solid var(--line);border-radius:16px;padding:18px;
+    box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:center}
   .modal h2{margin-top:0}
   .modal input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#111827;color:#fff}
-  .hl-lion{color:var(--lion)}
-  .hl-serpent{color:var(--serpent)}
-  .hl-raven{color:var(--raven)}
-  .hl-badger{color:var(--badger)}
 </style>
 </head>
 <body>
-<img id="brand" src="assets/logo.png" alt="Booze & Brews logo" />
+<img id="brand" src="assets/logo.png" alt="logo"/>
 
 <div class="wrap">
   <h1>Wizard Night — Reflex Challenge</h1>
@@ -54,10 +46,12 @@
     <div class="pill">⏱ Time <span id="time">45</span>s</div>
     <div class="pill">⭐ Score <span id="score">0</span></div>
     <div class="pill">🏆 Combo <span id="combo">x0</span></div>
+    <div class="pill" id="phasePill">Phase 1/3</div>
     <div class="controls">
       <button class="btn" id="startBtn">Start Game</button>
+      <button class="btn" id="fsBtn" title="Fullscreen">Fullscreen</button>
       <label class="pill" style="display:flex;align-items:center;gap:6px;">
-        <input id="sfxToggle" type="checkbox" checked /> SFX
+        <input id="sfxToggle" type="checkbox" checked/> SFX
       </label>
     </div>
   </div>
@@ -68,15 +62,14 @@
 
   <div class="card">
     <h2>How to Play</h2>
-    <p>Tap the <b>good</b> icons to score; avoid <b>dangerous creatures</b>. Colored orbs influence your House, not your score. In the final phase, watch for a <b>Golden Flying Rune</b> worth +100 (spawns once).</p>
-    <p class="muted">Icons: Wand, Spellbook, Potion, Wizard Hat, Owl, Broom (+); Troll, Dementor (–); Orbs: Red/Green/Blue/Yellow (House). Snitch-like rune appears only once near the end.</p>
+    <p>Tap the <b>good</b> icons to score; avoid <b>dangerous creatures</b>. Colored orbs influence your House only. A <b>Golden Flying Rune</b> worth +100 spawns once near the end.</p>
   </div>
 
   <h2 style="margin-top:14px">Leaderboard (Cumulative)</h2>
   <ul id="board" class="list"></ul>
 </div>
 
-<!-- end-of-round modal -->
+<!-- End modal -->
 <div class="modal-bg" id="endModal">
   <div class="modal">
     <h2>Round Finished</h2>
@@ -84,7 +77,7 @@
     <p>House: <b id="finalHouse">—</b></p>
     <p id="narrative" class="muted" style="min-height:2.2em"></p>
     <p>Prize: <b id="finalPrize">—</b></p>
-    <input id="playerName" placeholder="Enter your nickname" />
+    <input id="playerName" placeholder="Enter your nickname"/>
     <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
       <button class="btn" id="saveBtn">Save</button>
       <button class="btn" id="againBtn" style="background:linear-gradient(135deg,#f97316,#ef4444)">Play Again</button>
@@ -94,58 +87,57 @@
 
 <script>
 (function(){
-  // ========= YOU CAN EDIT THESE SETTINGS =========
-  // Rewards Table (edit freely)
+  // ====== EASY SETTINGS YOU CAN EDIT ======
+  // Rewards
   const REWARDS = [
-    { condition: (s)=> s < 200,                  prize: "Free Shot" },
-    { condition: (s)=> s >= 200 && s < 500,      prize: "10% OFF This Cocktail" },
-    { condition: (s)=> s >= 500,                 prize: "A Whole Bottle of Liquor", limit: 3 }
+    { condition: s=>s<200,            prize:"Free Shot" },
+    { condition: s=>s>=200 && s<500,  prize:"10% OFF This Cocktail" },
+    { condition: s=>s>=500,           prize:"A Whole Bottle of Liquor", limit:3 }
   ];
-  const BOTTLE_PRIZE = "A Whole Bottle of Liquor"; // keep in sync with REWARDS
+  const BOTTLE_PRIZE = "A Whole Bottle of Liquor";
 
-  // Round timing & phases
+  // Round & phases (more contrast)
   const ROUND_SECONDS = 45;
-
-// 三階段速度：差異更明顯
   const PHASES = [
-    { until: 15, speed: 1.25, spawnMs: 720 }, // Phase 1：暖身
-    { until: 30, speed: 1.65, spawnMs: 540 }, // Phase 2：明顯變快
-    { until: 45, speed: 2.10, spawnMs: 400 }  // Phase 3：很快（此階段會出 Snitch）
+    { until: 15, speed: 1.25, spawnMs: 720 }, // P1
+    { until: 30, speed: 1.65, spawnMs: 540 }, // P2
+    { until: 45, speed: 2.10, spawnMs: 400 }  // P3 (snitch)
   ];
+  const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
 
-// 基礎掉落速度的隨機範圍（也加大）
-const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
-
-  // Spawn weights (relative chances, color orbs rarer)
+  // Spawn weights (orbs rarer)
   const SPAWN_WEIGHTS = {
-    wand: 9, spellbook: 7, potion: 9, hat: 7, owl: 6, broom: 8,
-    troll: 5, dementor: 4,
-    orb_red: 2, orb_green: 2, orb_blue: 2, orb_yellow: 2 // rarer than others
+    wand:9, spellbook:7, potion:9, hat:7, owl:6, broom:8,
+    troll:5, dementor:4,
+    orb_red:2, orb_green:2, orb_blue:2, orb_yellow:2
   };
 
-  // Scores (increase sizes too)
+  // Scores & sizes
   const VALUES = { wand:7, spellbook:9, potion:6, hat:8, owl:5, broom:10, troll:-15, dementor:-20, snitch:100 };
   const RADII  = { wand:44, spellbook:54, potion:48, hat:52, owl:48, broom:56, troll:72, dementor:78, snitch:48,
                    orb_red:36, orb_green:36, orb_blue:36, orb_yellow:36 };
 
-  // Assets (put matching files into ./assets/)
+  // Assets
   const IMG = {
     wand:"assets/wand.png", spellbook:"assets/spellbook.png", potion:"assets/potion.png",
     hat:"assets/hat.png", owl:"assets/owl.png", broom:"assets/broom.png",
     troll:"assets/troll.png", dementor:"assets/dementor.png", snitch:"assets/snitch.png",
     orb_red:"assets/orb_red.png", orb_green:"assets/orb_green.png", orb_blue:"assets/orb_blue.png", orb_yellow:"assets/orb_yellow.png"
   };
-  const SFX = {
-    hit:"assets/hit.wav", miss:"assets/miss.wav",
-    countdown:"assets/countdown.wav", tension:"assets/tension.wav"
-  };
-  const STAFF_PASSWORD = "brew2025"; // if you want to lock starting. Set to "" to disable.
+  const SFX = { hit:"assets/hit.wav", miss:"assets/miss.wav", countdown:"assets/countdown.wav", tension:"assets/tension.wav" };
+  const STAFF_PASSWORD = "brew2025"; // "" to disable
 
-  // ========= DOM refs =========
-  const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
-  const HUD = { time:document.getElementById('time'), score:document.getElementById('score'), combo:document.getElementById('combo') };
-  const UI = {
+  // ====== DOM ======
+  const canvas=document.getElementById('game'), ctx=canvas.getContext('2d');
+  const HUD={
+    time:document.getElementById('time'),
+    score:document.getElementById('score'),
+    combo:document.getElementById('combo'),
+    phaseEl:document.getElementById('phasePill')
+  };
+  const UI={
     startBtn:document.getElementById('startBtn'),
+    fsBtn:document.getElementById('fsBtn'),
     sfxToggle:document.getElementById('sfxToggle'),
     board:document.getElementById('board'),
     modal:document.getElementById('endModal'),
@@ -158,54 +150,24 @@ const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
     againBtn:document.getElementById('againBtn')
   };
 
-  // ========= preload assets (robust) =========
-  const images = {};
-  function loadImage(key,src){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res({key,i}); i.onerror=()=>res({key,i:null}); i.src=src; }); }
-  function safeDraw(img,x,y,w,h,color){
-    if(img){ ctx.drawImage(img,x,y,w,h); } else { // graceful placeholder
-      ctx.save(); ctx.fillStyle = color || '#6b7280'; ctx.beginPath(); ctx.arc(x+w/2,y+h/2,Math.min(w,h)/2,0,Math.PI*2); ctx.fill(); ctx.restore();
-    }
-  }
-  function drawGlow(ctx, cx, cy, radius, rgba) {
-  const g = ctx.createRadialGradient(cx, cy, radius*0.2, cx, cy, radius);
-  const col = rgba || 'rgba(255,255,255,0.35)';
-  g.addColorStop(0, col);
-  g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI*2);
-  ctx.fill();
-  ctx.restore();
-}
-  function drawOutlineRing(ctx, cx, cy, r) {
-  ctx.save();
-  ctx.lineWidth = Math.max(2, r * 0.08);
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-  ctx.beginPath();
-  ctx.arc(cx, cy, r*0.98, 0, Math.PI*2);
-  ctx.stroke();
-  ctx.restore();
-}
-  function drawLighten(ctx, img, x, y, w, h, strength = 0.35) {
-  ctx.save();
-  ctx.globalAlpha = strength;
-  ctx.globalCompositeOperation = 'screen';
-  ctx.drawImage(img, x, y, w, h);
-  ctx.restore();
-}
-  let audio={}; let sfxEnabled=true;
+  // ====== preload images (safe) & audio ======
+  const images={};
+  function loadImage(key,src){ return new Promise(res=>{ const i=new Image(); i.onload=()=>res({key,i}); i.onerror=()=>res({key,i:null}); i.src=src; }); }
+  function safeDraw(img,x,y,w,h){ if(img){ ctx.drawImage(img,x,y,w,h); } else { ctx.save(); ctx.fillStyle='#6b7280'; ctx.beginPath(); ctx.arc(x+w/2,y+h/2,Math.min(w,h)/2,0,Math.PI*2); ctx.fill(); ctx.restore(); } }
+  let audio={}, sfxEnabled=true; UI.sfxToggle.onchange=()=>sfxEnabled=UI.sfxToggle.checked;
   function loadAudio(key,src){ const a=new Audio(); a.src=src; audio[key]=a; }
   function playSfx(key){ if(!sfxEnabled) return; const a=audio[key]; if(!a) return; try{ a.currentTime=0; a.play(); }catch{} }
 
-  // load
-  Promise.all(Object.entries(IMG).map(([k,src])=>loadImage(k,src))).then(list=>{
-    list.forEach(({key,i})=>{ images[key]=i; });
-  });
+  Promise.all(Object.entries(IMG).map(([k,src])=>loadImage(k,src))).then(list=>list.forEach(({key,i})=>images[key]=i));
   Object.entries(SFX).forEach(([k,src])=>loadAudio(k,src));
 
-  // ========= state =========
+  // Optional background image
+  let bgImg = null;
+  (function preloadBg(){
+    const i = new Image(); i.onload=()=>bgImg=i; i.src='assets/bg.jpg'; // change or remove file if you like
+  })();
+
+  // ====== localStorage Leaderboard ======
   const LS_BOARD='bb-wizard-leaderboard', LS_WINNERS='bb-bottle-winners';
   function loadBoard(){ try{return JSON.parse(localStorage.getItem(LS_BOARD)||'{}')}catch{return {}} }
   function saveBoard(o){ localStorage.setItem(LS_BOARD, JSON.stringify(o)); }
@@ -213,205 +175,181 @@ const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
   function saveWinners(a){ localStorage.setItem(LS_WINNERS, JSON.stringify(a)); }
   function renderBoard(){ const b=loadBoard(); const arr=Object.entries(b).map(([n,s])=>({n,s})).sort((a,b)=>b.s-a.s).slice(0,10);
     UI.board.innerHTML = arr.length? "":"<li><span class='muted'>No records yet</span></li>";
-    arr.forEach((r,i)=>{ const li=document.createElement('li'); li.className='list-item'; li.style.cssText="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px dashed var(--line)";
-      li.innerHTML=`<span>#${i+1} ${escapeHtml(r.n)}</span><b>${r.s}</b>`; UI.board.appendChild(li); });
+    arr.forEach((r,i)=>{ const li=document.createElement('li'); li.innerHTML=`<span>#${i+1} ${escapeHtml(r.n)}</span><b>${r.s}</b>`; UI.board.appendChild(li); });
   }
   function escapeHtml(s){ return (s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+  // ====== state ======
   let running=false, timeLeft=ROUND_SECONDS, score=0, combo=0, taps=0, hits=0, bad=0;
   let last=0, lastSpawn=0, entities=[], snitchSpawned=false, orbTally={red:0,green:0,blue:0,yellow:0};
-
-  UI.sfxToggle.onchange = () => { sfxEnabled = UI.sfxToggle.checked; };
 
   function reset(){
     timeLeft=ROUND_SECONDS; score=0; combo=0; taps=0; hits=0; bad=0;
     last=0; lastSpawn=0; entities=[]; snitchSpawned=false; orbTally={red:0,green:0,blue:0,yellow:0};
-    HUD.time.textContent=timeLeft; HUD.score.textContent=0; HUD.combo.textContent='x0';
+    HUD.time.textContent=timeLeft; HUD.score.textContent=0; HUD.combo.textContent='x0'; HUD.phaseEl.textContent='Phase 1/3';
   }
-  function curPhaseSpeed(){
-    const t = ROUND_SECONDS-timeLeft;
-    for(const p of PHASES){ if(t < p.until) return p.speed; }
-    return PHASES[PHASES.length-1].speed;
+  function phaseIndex(){ const t=ROUND_SECONDS-timeLeft; if(t<PHASES[0].until) return 0; if(t<PHASES[1].until) return 1; return 2; }
+
+  // ====== draw helpers to brighten dark assets ======
+  function drawGlow(ctx,cx,cy,r,rgba){
+    const g = ctx.createRadialGradient(cx,cy,r*0.2,cx,cy,r);
+    g.addColorStop(0, rgba || 'rgba(255,255,255,0.35)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save(); ctx.globalCompositeOperation='screen'; ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); ctx.restore();
   }
-  function start(){
-    if(STAFF_PASSWORD){
-      const pwd = prompt("Enter staff password:");
-      if(pwd !== STAFF_PASSWORD) { alert("Wrong password."); return; }
-    }
-    // small UX: play countdown once before round
-    playSfx('countdown');
-    reset(); running=true; requestAnimationFrame(loop);
-  }
-  UI.startBtn.onclick = start;
-  UI.againBtn.onclick = start;
+  function drawLighten(ctx,img,x,y,w,h,strength=0.35){ ctx.save(); ctx.globalAlpha=strength; ctx.globalCompositeOperation='screen'; ctx.drawImage(img,x,y,w,h); ctx.restore(); }
+  function drawOutlineRing(ctx,cx,cy,r){ ctx.save(); ctx.lineWidth=Math.max(2, r*0.08); ctx.strokeStyle='rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(cx,cy,r*0.98,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
 
-  function loop(ts){
-    if(!running) return;
-    if(!last) last=ts; const dt=Math.min(.05,(ts-last)/1000); last=ts;
-    timeLeft=Math.max(0,timeLeft-dt); HUD.time.textContent=Math.ceil(timeLeft);
-
-    // tension sound when last 15s
-    if(Math.ceil(timeLeft)===15) playSfx('tension');
-
-    // spawn
-    if(Date.now()-lastSpawn > 700){
-      lastSpawn=Date.now(); spawn();
-    }
-
-    // update
-    const speed = curPhaseSpeed();
-    entities.forEach(e=>{ e.y += e.vy*speed; e.ttl -= dt*1000; });
-    entities = entities.filter(e=> e.ttl>0 && !e.discard);
-
-    // render
-    draw();
-
-    if(timeLeft<=0){ return end(); }
-    requestAnimationFrame(loop);
-  }
-
-    function weightedPick(){
+  // ====== spawn & draw ======
+  function weightedPick(){
     const t = ROUND_SECONDS - timeLeft;
-    // Phase 3 中後段才可能出 Snitch，機率提高
-    if(!snitchSpawned && t >= PHASES[2].until - 12){
-      if (Math.random() < 0.22) { snitchSpawned = true; return "snitch"; }
-    }
-    // 其他照原先的權重
-    let sum = 0; const entries = Object.entries(SPAWN_WEIGHTS);
-    entries.forEach(([k,v]) => sum += v);
-    let r = Math.random()*sum;
-    for(const [k,v] of entries){ if((r -= v) <= 0) return k; }
+    if(!snitchSpawned && t >= PHASES[2].until - 12){ if(Math.random()<0.22){ snitchSpawned=true; return "snitch"; } }
+    const entries=Object.entries(SPAWN_WEIGHTS);
+    let sum=0; entries.forEach(([k,v])=>sum+=v);
+    let r=Math.random()*sum;
+    for(const [k,v] of entries){ if((r-=v)<=0) return k; }
     return entries[0][0];
   }
-
 
   function spawn(){
     const type = weightedPick();
     const r = RADII[type];
-    const x = Math.random()*(canvas.width-r*2) + r;
+    const x = Math.random()*(canvas.width - r*2) + r;
     const y = -r;
     const vy = BASE_FALL_MIN + Math.random()*BASE_FALL_VAR;
+    const vx = (Math.random()*2 - 1) * (0.6 + Math.random()*0.6);
     const ttl = type==="snitch" ? 5000 : 8000;
-    entities.push({type,x,y,vy,r,ttl,discard:false});
+    const wiggle = Math.random() * Math.PI * 2;
+    entities.push({type,x,y,vx,vy,r,ttl,wiggle,discard:false});
   }
 
   function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  entities.forEach(e=>{
-    const s = e.r*2;
-    const px = e.x - e.r, py = e.y - e.r;
-    const img = images[e.type];
-
-    // 1) 先畫柔光底盤（讓所有物件都有立體感）
-    drawGlow(ctx, e.x, e.y, e.r*1.05, 'rgba(255,255,255,0.12)');
-
-    // 2) 針對黑暗生物加強可見度：更大的彩色光暈 + 白色描邊 + 提亮
-    if(e.type === 'dementor'){
-      drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(120,190,255,0.45)'); // 冷色光暈
-      drawOutlineRing(ctx, e.x, e.y, e.r);
-      if(img){ drawLighten(ctx, img, px, py, s, s, 0.55); }
-    } else if(e.type === 'troll'){
-      drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(255,160,110,0.45)'); // 暖色光暈
-      drawOutlineRing(ctx, e.x, e.y, e.r);
-      if(img){ drawLighten(ctx, img, px, py, s, s, 0.45); }
-    } else if(e.type === 'snitch'){
-      drawGlow(ctx, e.x, e.y, e.r*1.25, 'rgba(255,210,90,0.45)');
-    } else if(e.type.startsWith('orb_')){
-      drawGlow(ctx, e.x, e.y, e.r*1.2, 'rgba(255,200,120,0.35)');
+    // background
+    if(bgImg){
+      const ratio = Math.max(canvas.width/bgImg.width, canvas.height/bgImg.height);
+      const w = bgImg.width*ratio, h = bgImg.height*ratio;
+      const x = (canvas.width - w)/2, y = (canvas.height - h)/2;
+      ctx.drawImage(bgImg, x, y, w, h);
+    } else {
+      const grd = ctx.createLinearGradient(0,0,0,canvas.height);
+      grd.addColorStop(0,'#0b1028'); grd.addColorStop(1,'#070a1a');
+      ctx.fillStyle = grd; ctx.fillRect(0,0,canvas.width,canvas.height);
     }
 
-    // 3) 正常繪圖（若圖缺失 safeDraw 會自動用佔位）
-    safeDraw(img, px, py, s, s);
+    entities.forEach(e=>{
+      const s=e.r*2, px=e.x-e.r, py=e.y-e.r;
+      const img = images[e.type];
 
-    // 4) 再微量提亮（所有物件），保證深色背景下清楚
-    if(img){ drawLighten(ctx, img, px, py, s, s, 0.15); }
-  });
-}
+      drawGlow(ctx, e.x, e.y, e.r*1.05, 'rgba(255,255,255,0.12)');
+      if(e.type==='dementor'){ drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(120,190,255,0.45)'); drawOutlineRing(ctx, e.x, e.y, e.r); if(img) drawLighten(ctx,img,px,py,s,s,0.55); }
+      else if(e.type==='troll'){ drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(255,160,110,0.45)'); drawOutlineRing(ctx, e.x, e.y, e.r); if(img) drawLighten(ctx,img,px,py,s,s,0.45); }
+      else if(e.type==='snitch'){ drawGlow(ctx, e.x, e.y, e.r*1.25, 'rgba(255,210,90,0.45)'); }
+      else if(e.type.startsWith('orb_')){ drawGlow(ctx, e.x, e.y, e.r*1.2, 'rgba(255,200,120,0.35)'); }
 
+      safeDraw(img, px, py, s, s);
+      if(img) drawLighten(ctx,img,px,py,s,s,0.15);
+    });
+  }
+
+  // ====== input (pointer only) ======
+  canvas.onclick = null; canvas.ontouchstart = null;
+  canvas.removeEventListener('click', onTap, true);
+  canvas.removeEventListener('touchstart', onTap, true);
+  window.addEventListener('click', (e)=>{ // block synthetic click after touch
+    if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+  canvas.addEventListener('pointerdown', onTap, {passive:false, capture:true});
 
   function getPos(ev){
-    const rect = canvas.getBoundingClientRect();
-    const x = (ev.touches? ev.touches[0].clientX : ev.clientX) - rect.left;
-    const y = (ev.touches? ev.touches[0].clientY : ev.clientY) - rect.top;
-    return { x:x*(canvas.width/rect.width), y:y*(canvas.height/rect.height) };
+    const rect=canvas.getBoundingClientRect();
+    const x=(ev.clientX-rect.left)*(canvas.width/rect.width);
+    const y=(ev.clientY-rect.top)*(canvas.height/rect.height);
+    return {x,y};
   }
+
+  let lastTapAt=0;
   function onTap(ev){
+    ev.preventDefault();
     if(!running) return;
+
+    const now=performance.now();
+    if(now - lastTapAt < 250) return; // debounce double-event
+    lastTapAt = now;
+
     taps++;
-    const p = getPos(ev);
-    let hit=-1;
-    for(let i=entities.length-1;i>=0;i--){ // top-most first
-      const it=entities[i]; if(Math.hypot(it.x-p.x,it.y-p.y)<it.r){ hit=i; break; }
-    }
-    if(hit>=0){
-      const t=entities[hit]; t.discard=true;
-      if(t.type.startsWith("orb_")){
-        // tally color orbs
-        if(t.type==="orb_red")   orbTally.red++;
-        if(t.type==="orb_green") orbTally.green++;
-        if(t.type==="orb_blue")  orbTally.blue++;
-        if(t.type==="orb_yellow")orbTally.yellow++;
-        playSfx('hit');
-        combo++; HUD.combo.textContent='x'+combo;
-        return;
-      }
-      const v = VALUES[t.type]||0;
-      if(v>0){ score+=v; hits++; combo++; HUD.score.textContent=score; HUD.combo.textContent='x'+combo; playSfx('hit'); }
-      else   { score=Math.max(0,score+v); bad++; combo=0; HUD.score.textContent=score; HUD.combo.textContent='x0'; playSfx('miss'); }
-    } else {
-      combo = Math.max(0, combo-1);
-      HUD.combo.textContent='x'+combo;
-    }
-  }
-  canvas.addEventListener('click', onTap, {passive:true});
-  canvas.addEventListener('touchstart', onTap, {passive:true});
+    const p=getPos(ev);
+    let idx=-1;
+    for(let i=entities.length-1;i>=0;i--){ const it=entities[i]; if(Math.hypot(it.x-p.x,it.y-p.y)<it.r){ idx=i; break; } }
 
-  // ========= Sorting (behavior + color preference) =========
-  function accuracy(){ return taps? (hits/taps) : 0; }
-  function behaviorHouse(){
-    // very rough heuristics for vibe
-    const acc = accuracy();
-    if(acc >= 0.78) return "Raven";
-    if(combo >= 12) return "Badger";
-    if(bad >= 6)    return "Serpent"; // risk-taking / chaotic
-    return "Lion";
-  }
-  function colorHouse(){
-    const arr = [
-      {k:"red",v:orbTally.red, house:"Lion"},
-      {k:"green",v:orbTally.green, house:"Serpent"},
-      {k:"blue",v:orbTally.blue, house:"Raven"},
-      {k:"yellow",v:orbTally.yellow, house:"Badger"},
-    ].sort((a,b)=>b.v-a.v);
-    if(arr[0].v===0) return null;
-    return arr[0].house;
-  }
-  function houseClass(h){ return h==="Lion"?"hl-lion":h==="Serpent"?"hl-serpent":h==="Raven"?"hl-raven":"hl-badger"; }
-  function sortWithNarrative(){
-    const bh = behaviorHouse();
-    const ch = colorHouse();
-    let final = bh, line="";
-    if(ch && ch!==bh){
-      // 50/50 draw between two—keeps it mysterious
-      final = Math.random()<0.5? bh : ch;
-      line = `You played like a ${bh}, yet your eyes favored ${ch} sigils… The Hat hesitates.`;
-    } else if(ch && ch===bh){
-      final = bh;
-      line = `Both your nature and your choices align.`;
-    } else {
-      final = bh;
-      line = `Your actions alone tell the story.`;
+    if(idx===-1){
+      // 你的新規則：空點 = combo 歸零（不扣分）
+      combo = 0; HUD.combo.textContent = 'x0';
+      return;
     }
-    return {final, line};
+
+    const t=entities[idx]; t.discard=true;
+
+    if(t.type.startsWith('orb_')){
+      if(t.type==='orb_red') orbTally.red++;
+      if(t.type==='orb_green') orbTally.green++;
+      if(t.type==='orb_blue') orbTally.blue++;
+      if(t.type==='orb_yellow') orbTally.yellow++;
+      combo++; HUD.combo.textContent='x'+combo; playSfx('hit'); return;
+    }
+
+    const v = VALUES[t.type]||0;
+    if(v>0){
+      score+=v; hits++; combo++;
+      HUD.score.textContent=score; HUD.combo.textContent='x'+combo; playSfx('hit');
+    } else {
+      score=Math.max(0,score+v); bad++; combo=0;
+      HUD.score.textContent=score; HUD.combo.textContent='x0'; playSfx('miss');
+    }
   }
 
-  // ========= Rewards =========
+  // ====== loop ======
+  function loop(ts){
+    if(!running) return;
+    if(!last) last=ts; const dt=Math.min(.05,(ts-last)/1000); last=ts;
+
+    timeLeft=Math.max(0,timeLeft-dt);
+    HUD.time.textContent=Math.ceil(timeLeft);
+
+    const p=phaseIndex(); HUD.phaseEl.textContent=`Phase ${p+1}/3`;
+
+    if(Math.ceil(timeLeft)===15) playSfx('tension');
+
+    const now=performance.now();
+    if(now - lastSpawn > PHASES[p].spawnMs){ lastSpawn=now; spawn(); }
+
+    const speed=PHASES[p].speed;
+    entities.forEach(e=>{
+      e.y += e.vy * speed;
+      e.x += e.vx * speed + Math.sin((now/350) + e.wiggle) * 0.6;
+      if(e.x < e.r){ e.x=e.r; e.vx=Math.abs(e.vx); }
+      if(e.x > canvas.width - e.r){ e.x=canvas.width-e.r; e.vx=-Math.abs(e.vx); }
+      e.ttl -= dt*1000;
+    });
+    entities = entities.filter(e=> e.ttl>0 && !e.discard);
+
+    draw();
+
+    if(timeLeft<=0){ end(); return; }
+    requestAnimationFrame(loop);
+  }
+
+  // ====== sorting (behavior + color) ======
+  function accuracy(){ return taps? (hits/taps):0; }
+  function behaviorHouse(){ const acc=accuracy(); if(acc>=0.78) return "Raven"; if(combo>=12) return "Badger"; if(bad>=6) return "Serpent"; return "Lion"; }
+  function colorHouse(){ const arr=[{k:'red',v:orbTally.red,house:'Lion'},{k:'green',v:orbTally.green,house:'Serpent'},{k:'blue',v:orbTally.blue,house:'Raven'},{k:'yellow',v:orbTally.yellow,house:'Badger'}].sort((a,b)=>b.v-a.v); return arr[0].v?arr[0].house:null; }
+  function sortWithNarrative(){ const bh=behaviorHouse(), ch=colorHouse(); let final=bh, line=""; if(ch&&ch!==bh){ final=Math.random()<0.5?bh:ch; line=`You played like a ${bh}, yet your eyes favored ${ch} sigils… The Hat hesitates.`; } else if(ch&&ch===bh){ line=`Both your nature and your choices align.`; } else { line=`Your actions alone tell the story.`; } return {final,line}; }
+
+  // ====== rewards & end ======
   function getReward(s){
     for(const r of REWARDS){
       if(r.condition(s)){
         if(r.limit && r.prize===BOTTLE_PRIZE){
-          const winners = loadWinners();
-          if(winners.length >= r.limit) continue;
+          const winners=loadWinners(); if(winners.length>=r.limit) continue;
         }
         return r.prize;
       }
@@ -419,33 +357,20 @@ const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
     return "No Prize";
   }
 
-  // ========= End & Modal =========
   function end(){
     running=false;
-    const {final, line} = sortWithNarrative();
-    const prize = getReward(score);
-
-    UI.finalScore.textContent = score;
-    UI.narrative.textContent = line;
-    UI.finalPrize.textContent = prize;
-
-    UI.finalHouse.textContent = final;
-    UI.finalHouse.className = ""; // reset classes
-    UI.finalHouse.classList.add(houseClass(final));
-
+    const {final,line}=sortWithNarrative();
+    const prize=getReward(score);
+    UI.finalScore.textContent=score; UI.narrative.textContent=line; UI.finalPrize.textContent=prize;
+    UI.finalHouse.textContent=final;
     UI.modal.style.display='flex';
   }
 
-  UI.saveBtn.onclick = ()=>{
-    const name=(UI.playerName.value||"Guest").trim().slice(0,24);
-    if(!name) return;
+  UI.saveBtn.onclick=()=>{
+    const name=(UI.playerName.value||"Guest").trim().slice(0,24); if(!name) return;
     const board=loadBoard(); board[name]=(board[name]||0)+score; saveBoard(board);
-    // lock bottle winner if applicable
-    const prize = getReward(score);
-    if(prize===BOTTLE_PRIZE){
-      const winners=loadWinners();
-      if(!winners.includes(name)){
-        winners.push(name); saveWinners(winners);
+    if(getReward(score)===BOTTLE_PRIZE){
+      const winners=loadWinners(); if(!winners.includes(name)){ winners.push(name); saveWinners(winners);
         alert(`${name} locked as bottle winner! (${winners.length}/${(REWARDS.find(r=>r.prize===BOTTLE_PRIZE)?.limit||3)})`);
       }
     }
@@ -453,9 +378,37 @@ const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
     renderBoard();
   };
 
-  // ========= init =========
+  // ====== start/reset/fullscreen/password ======
+  function hideAllModals(){ try{ UI.modal.style.display='none'; }catch{} }
+  function start(){
+    hideAllModals();
+    document.activeElement && document.activeElement.blur && document.activeElement.blur();
+    if(STAFF_PASSWORD){
+      const pwd=prompt("Enter staff password:"); if(pwd!==STAFF_PASSWORD){ alert("Wrong password."); return; }
+      hideAllModals(); // 正確後確實關閉任何殘留彈窗
+    }
+    playSfx('countdown'); reset(); running=true; requestAnimationFrame(loop);
+  }
+  UI.startBtn.onclick=start; UI.againBtn.onclick=start;
+
+  UI.fsBtn.onclick = async () => {
+    const el = document.documentElement;
+    try {
+      if (!document.fullscreenElement) {
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      } else {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      }
+    } catch(e){ console.warn(e); }
+  };
+
+  // ====== init ======
   renderBoard(); reset();
 
+  // util
+  function escapeHtml(s){return (s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 })();
 </script>
 </body>
