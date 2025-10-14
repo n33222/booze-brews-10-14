@@ -49,7 +49,6 @@
     <div class="pill" id="phasePill">Phase 1/3</div>
     <div class="controls">
       <button class="btn" id="startBtn">Start Game</button>
-      <button class="btn" id="fsBtn" title="Fullscreen">Fullscreen</button>
       <label class="pill" style="display:flex;align-items:center;gap:6px;">
         <input id="sfxToggle" type="checkbox" checked/> SFX
       </label>
@@ -87,7 +86,7 @@
 
 <script>
 (function(){
-  // ====== EASY SETTINGS YOU CAN EDIT ======
+  // ====== EASY SETTINGS ======
   // Rewards
   const REWARDS = [
     { condition: s=>s<200,            prize:"Free Shot" },
@@ -96,7 +95,7 @@
   ];
   const BOTTLE_PRIZE = "A Whole Bottle of Liquor";
 
-  // Round & phases (more contrast)
+  // Round & phases
   const ROUND_SECONDS = 45;
   const PHASES = [
     { until: 15, speed: 1.25, spawnMs: 720 }, // P1
@@ -105,6 +104,9 @@
   ];
   const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
 
+  // Orbs guarantee per round
+  const ORB_TARGET_MIN = 6, ORB_TARGET_MAX = 10;
+
   // Spawn weights (orbs rarer)
   const SPAWN_WEIGHTS = {
     wand:9, spellbook:7, potion:9, hat:7, owl:6, broom:8,
@@ -112,9 +114,9 @@
     orb_red:2, orb_green:2, orb_blue:2, orb_yellow:2
   };
 
-  // Scores & sizes
+  // Scores & sizes (troll/dementor slightly smaller)
   const VALUES = { wand:7, spellbook:9, potion:6, hat:8, owl:5, broom:10, troll:-15, dementor:-20, snitch:100 };
-  const RADII  = { wand:44, spellbook:54, potion:48, hat:52, owl:48, broom:56, troll:72, dementor:78, snitch:48,
+  const RADII  = { wand:44, spellbook:54, potion:48, hat:52, owl:48, broom:56, troll:66, dementor:70, snitch:48,
                    orb_red:36, orb_green:36, orb_blue:36, orb_yellow:36 };
 
   // Assets
@@ -137,7 +139,6 @@
   };
   const UI={
     startBtn:document.getElementById('startBtn'),
-    fsBtn:document.getElementById('fsBtn'),
     sfxToggle:document.getElementById('sfxToggle'),
     board:document.getElementById('board'),
     modal:document.getElementById('endModal'),
@@ -150,7 +151,7 @@
     againBtn:document.getElementById('againBtn')
   };
 
-  // ====== preload images (safe) & audio ======
+  // ====== preload images & audio ======
   const images={};
   function loadImage(key,src){ return new Promise(res=>{ const i=new Image(); i.onload=()=>res({key,i}); i.onerror=()=>res({key,i:null}); i.src=src; }); }
   function safeDraw(img,x,y,w,h){ if(img){ ctx.drawImage(img,x,y,w,h); } else { ctx.save(); ctx.fillStyle='#6b7280'; ctx.beginPath(); ctx.arc(x+w/2,y+h/2,Math.min(w,h)/2,0,Math.PI*2); ctx.fill(); ctx.restore(); } }
@@ -164,10 +165,10 @@
   // Optional background image
   let bgImg = null;
   (function preloadBg(){
-    const i = new Image(); i.onload=()=>bgImg=i; i.src='assets/bg.jpg'; // change or remove file if you like
+    const i = new Image(); i.onload=()=>bgImg=i; i.src='assets/bg.jpg'; // swap yours
   })();
 
-  // ====== localStorage Leaderboard ======
+  // ====== Leaderboard ======
   const LS_BOARD='bb-wizard-leaderboard', LS_WINNERS='bb-bottle-winners';
   function loadBoard(){ try{return JSON.parse(localStorage.getItem(LS_BOARD)||'{}')}catch{return {}} }
   function saveBoard(o){ localStorage.setItem(LS_BOARD, JSON.stringify(o)); }
@@ -182,15 +183,17 @@
   // ====== state ======
   let running=false, timeLeft=ROUND_SECONDS, score=0, combo=0, taps=0, hits=0, bad=0;
   let last=0, lastSpawn=0, entities=[], snitchSpawned=false, orbTally={red:0,green:0,blue:0,yellow:0};
+  let maxCombo=0, hitSnitch=false, orbsSpawned=0;
 
   function reset(){
     timeLeft=ROUND_SECONDS; score=0; combo=0; taps=0; hits=0; bad=0;
     last=0; lastSpawn=0; entities=[]; snitchSpawned=false; orbTally={red:0,green:0,blue:0,yellow:0};
+    maxCombo=0; hitSnitch=false; orbsSpawned=0;
     HUD.time.textContent=timeLeft; HUD.score.textContent=0; HUD.combo.textContent='x0'; HUD.phaseEl.textContent='Phase 1/3';
   }
   function phaseIndex(){ const t=ROUND_SECONDS-timeLeft; if(t<PHASES[0].until) return 0; if(t<PHASES[1].until) return 1; return 2; }
 
-  // ====== draw helpers to brighten dark assets ======
+  // ====== draw helpers (glow & lighten) ======
   function drawGlow(ctx,cx,cy,r,rgba){
     const g = ctx.createRadialGradient(cx,cy,r*0.2,cx,cy,r);
     g.addColorStop(0, rgba || 'rgba(255,255,255,0.35)');
@@ -198,7 +201,6 @@
     ctx.save(); ctx.globalCompositeOperation='screen'; ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); ctx.restore();
   }
   function drawLighten(ctx,img,x,y,w,h,strength=0.35){ ctx.save(); ctx.globalAlpha=strength; ctx.globalCompositeOperation='screen'; ctx.drawImage(img,x,y,w,h); ctx.restore(); }
-  function drawOutlineRing(ctx,cx,cy,r){ ctx.save(); ctx.lineWidth=Math.max(2, r*0.08); ctx.strokeStyle='rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(cx,cy,r*0.98,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
 
   // ====== spawn & draw ======
   function weightedPick(){
@@ -212,15 +214,26 @@
   }
 
   function spawn(){
-    const type = weightedPick();
-    const r = RADII[type];
-    const x = Math.random()*(canvas.width - r*2) + r;
-    const y = -r;
+    const r = Math.random;
+    const type = (() => {
+      const target = ORB_TARGET_MIN + Math.floor(r()*(ORB_TARGET_MAX-ORB_TARGET_MIN+1));
+      const elapsed = (ROUND_SECONDS - timeLeft) / ROUND_SECONDS;
+      if (orbsSpawned < target && (orbsSpawned/target) < elapsed) {
+        orbsSpawned++;
+        const pool = ["orb_red","orb_green","orb_blue","orb_yellow"];
+        return pool[Math.floor(r()*pool.length)];
+      }
+      return weightedPick();
+    })();
+
+    const rad = RADII[type];
+    const x = Math.random()*(canvas.width - rad*2) + rad;
+    const y = -rad;
     const vy = BASE_FALL_MIN + Math.random()*BASE_FALL_VAR;
     const vx = (Math.random()*2 - 1) * (0.6 + Math.random()*0.6);
     const ttl = type==="snitch" ? 5000 : 8000;
     const wiggle = Math.random() * Math.PI * 2;
-    entities.push({type,x,y,vx,vy,r,ttl,wiggle,discard:false});
+    entities.push({type,x,y,vx,vy,r:rad,ttl,wiggle,discard:false});
   }
 
   function draw(){
@@ -240,9 +253,10 @@
       const s=e.r*2, px=e.x-e.r, py=e.y-e.r;
       const img = images[e.type];
 
+      // 底部柔光；生物/球類額外光暈（移除外圈描邊）
       drawGlow(ctx, e.x, e.y, e.r*1.05, 'rgba(255,255,255,0.12)');
-      if(e.type==='dementor'){ drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(120,190,255,0.45)'); drawOutlineRing(ctx, e.x, e.y, e.r); if(img) drawLighten(ctx,img,px,py,s,s,0.55); }
-      else if(e.type==='troll'){ drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(255,160,110,0.45)'); drawOutlineRing(ctx, e.x, e.y, e.r); if(img) drawLighten(ctx,img,px,py,s,s,0.45); }
+      if(e.type==='dementor'){ drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(120,190,255,0.45)'); if(img) drawLighten(ctx,img,px,py,s,s,0.55); }
+      else if(e.type==='troll'){ drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(255,160,110,0.45)'); if(img) drawLighten(ctx,img,px,py,s,s,0.45); }
       else if(e.type==='snitch'){ drawGlow(ctx, e.x, e.y, e.r*1.25, 'rgba(255,210,90,0.45)'); }
       else if(e.type.startsWith('orb_')){ drawGlow(ctx, e.x, e.y, e.r*1.2, 'rgba(255,200,120,0.35)'); }
 
@@ -273,7 +287,7 @@
     if(!running) return;
 
     const now=performance.now();
-    if(now - lastTapAt < 250) return; // debounce double-event
+    if(now - lastTapAt < 250) return; // debounce
     lastTapAt = now;
 
     taps++;
@@ -282,7 +296,7 @@
     for(let i=entities.length-1;i>=0;i--){ const it=entities[i]; if(Math.hypot(it.x-p.x,it.y-p.y)<it.r){ idx=i; break; } }
 
     if(idx===-1){
-      // 你的新規則：空點 = combo 歸零（不扣分）
+      // 空點：combo 歸零（不扣分）
       combo = 0; HUD.combo.textContent = 'x0';
       return;
     }
@@ -294,12 +308,15 @@
       if(t.type==='orb_green') orbTally.green++;
       if(t.type==='orb_blue') orbTally.blue++;
       if(t.type==='orb_yellow') orbTally.yellow++;
-      combo++; HUD.combo.textContent='x'+combo; playSfx('hit'); return;
+      combo++; if(combo>maxCombo) maxCombo=combo;
+      HUD.combo.textContent='x'+combo; playSfx('hit'); return;
     }
+
+    if(t.type==='snitch') hitSnitch = true;
 
     const v = VALUES[t.type]||0;
     if(v>0){
-      score+=v; hits++; combo++;
+      score+=v; hits++; combo++; if(combo>maxCombo) maxCombo=combo;
       HUD.score.textContent=score; HUD.combo.textContent='x'+combo; playSfx('hit');
     } else {
       score=Math.max(0,score+v); bad++; combo=0;
@@ -338,11 +355,60 @@
     requestAnimationFrame(loop);
   }
 
-  // ====== sorting (behavior + color) ======
-  function accuracy(){ return taps? (hits/taps):0; }
-  function behaviorHouse(){ const acc=accuracy(); if(acc>=0.78) return "Raven"; if(combo>=12) return "Badger"; if(bad>=6) return "Serpent"; return "Lion"; }
-  function colorHouse(){ const arr=[{k:'red',v:orbTally.red,house:'Lion'},{k:'green',v:orbTally.green,house:'Serpent'},{k:'blue',v:orbTally.blue,house:'Raven'},{k:'yellow',v:orbTally.yellow,house:'Badger'}].sort((a,b)=>b.v-a.v); return arr[0].v?arr[0].house:null; }
-  function sortWithNarrative(){ const bh=behaviorHouse(), ch=colorHouse(); let final=bh, line=""; if(ch&&ch!==bh){ final=Math.random()<0.5?bh:ch; line=`You played like a ${bh}, yet your eyes favored ${ch} sigils… The Hat hesitates.`; } else if(ch&&ch===bh){ line=`Both your nature and your choices align.`; } else { line=`Your actions alone tell the story.`; } return {final,line}; }
+  // ====== sorting (four-signal + color priority) ======
+  function accuracy(){ return taps ? (hits / taps) : 0; }
+  function tapsPerSecond(){ return taps / ROUND_SECONDS; }
+  function badRatio(){ const total = hits + bad; return total ? (bad / total) : 0; }
+  function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
+  function behaviorHouseScored(){
+    const acc = accuracy();
+    const tps = tapsPerSecond();
+    const br  = badRatio();
+    const pers = Math.min(1, maxCombo / 12); // resilience for Badger
+    const snitchBonus = hitSnitch ? 0.25 : 0.0;
+
+    const score = {
+      Raven:   clamp01( 0.85*acc + 0.15*(1-br) - 0.10*Math.max(0, tps-4)/4 ),
+      Badger:  clamp01( 0.70*pers + 0.20*(1-br) + 0.10*Math.max(0, 4 - Math.abs(tps-3))/4 ),
+      Serpent: clamp01( 0.55*br + 0.25*(tps/6) + 0.20*(1-acc) ),
+      Lion:    clamp01( 0.50*(tps/6) + 0.20*(1-br) + 0.15*acc + 0.15*snitchBonus )
+    };
+
+    let best="Lion", bestVal=-1;
+    for (const [k,v] of Object.entries(score)){
+      if (v > bestVal){ best = k; bestVal = v; }
+    }
+    return best;
+  }
+
+  function colorHouse(){
+    const arr = [
+      {k:'red',   v: orbTally.red,    house:'Lion'},
+      {k:'green', v: orbTally.green,  house:'Serpent'},
+      {k:'blue',  v: orbTally.blue,   house:'Raven'},
+      {k:'yellow',v: orbTally.yellow, house:'Badger'},
+    ].sort((a,b)=>b.v-a.v);
+    return arr[0].v ? arr[0].house : null;
+  }
+
+  function sortWithNarrative(){
+    const BH = behaviorHouseScored();
+    const CH = colorHouse();
+    let final = BH, line = "";
+
+    if (CH && CH !== BH){
+      final = Math.random() < 0.70 ? CH : BH;
+      line = `You played like a ${BH}, yet your eyes favored ${CH} sigils… The Hat leans to your choice.`;
+    } else if (CH && CH === BH){
+      final = BH;
+      line = `Both your nature and your choices align.`;
+    } else {
+      final = BH;
+      line = `Your actions alone tell the story.`;
+    }
+    return {final, line};
+  }
 
   // ====== rewards & end ======
   function getReward(s){
@@ -378,31 +444,18 @@
     renderBoard();
   };
 
-  // ====== start/reset/fullscreen/password ======
+  // ====== start/reset/password ======
   function hideAllModals(){ try{ UI.modal.style.display='none'; }catch{} }
   function start(){
     hideAllModals();
     document.activeElement && document.activeElement.blur && document.activeElement.blur();
     if(STAFF_PASSWORD){
       const pwd=prompt("Enter staff password:"); if(pwd!==STAFF_PASSWORD){ alert("Wrong password."); return; }
-      hideAllModals(); // 正確後確實關閉任何殘留彈窗
+      hideAllModals();
     }
     playSfx('countdown'); reset(); running=true; requestAnimationFrame(loop);
   }
   UI.startBtn.onclick=start; UI.againBtn.onclick=start;
-
-  UI.fsBtn.onclick = async () => {
-    const el = document.documentElement;
-    try {
-      if (!document.fullscreenElement) {
-        if (el.requestFullscreen) await el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-      } else {
-        if (document.exitFullscreen) await document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-      }
-    } catch(e){ console.warn(e); }
-  };
 
   // ====== init ======
   renderBoard(); reset();
