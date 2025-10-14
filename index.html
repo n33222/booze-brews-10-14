@@ -89,9 +89,9 @@
   // ====== EASY SETTINGS ======
   // Rewards
   const REWARDS = [
-    { condition: s=>s<200,            prize:"Free Shot" },
-    { condition: s=>s>=200 && s<500,  prize:"10% OFF This Cocktail" },
-    { condition: s=>s>=500,           prize:"A Whole Bottle of Liquor", limit:3 }
+    { condition: s=>s<300,            prize:"Free Shot" },
+    { condition: s=>s>=400 && s<600,  prize:"10% OFF This Cocktail" },
+    { condition: s=>s>=800,           prize:"A Whole Bottle of Liquor", limit:3 }
   ];
   const BOTTLE_PRIZE = "A Whole Bottle of Liquor";
 
@@ -115,7 +115,7 @@
   };
 
   // Scores & sizes (troll/dementor slightly smaller)
-  const VALUES = { wand:7, spellbook:9, potion:6, hat:8, owl:5, broom:10, troll:-15, dementor:-20, snitch:100 };
+  const VALUES = { wand:20, spellbook:10, potion:10, hat:20, owl:15, broom:5, troll:-15, dementor:-20, snitch:100 };
   const RADII  = { wand:44, spellbook:54, potion:48, hat:52, owl:48, broom:56, troll:66, dementor:70, snitch:48,
                    orb_red:36, orb_green:36, orb_blue:36, orb_yellow:36 };
 
