@@ -8,7 +8,7 @@
   :root{
     --bg:#0b0f1f; --panel:#0e142a; --line:rgba(255,255,255,.18);
     --txt:#e6e8ee; --muted:#aab0c0;
-    --lion:#b71c1c; --serpent:#0b8a55; --raven:#1f4aa8; --badger:#d4a500;
+    --gryffindor:#b71c1c; --slytherin:#0b8a55; --ravenclaw:#1f4aa8; --hufflepuff:#d4a500;
     --accent1:#7c3aed; --accent2:#0ea5e9;
   }
   html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);
@@ -369,10 +369,10 @@
     const snitchBonus = hitSnitch ? 0.25 : 0.0;
 
     const score = {
-      Raven:   clamp01( 0.85*acc + 0.15*(1-br) - 0.10*Math.max(0, tps-4)/4 ),
-      Badger:  clamp01( 0.70*pers + 0.20*(1-br) + 0.10*Math.max(0, 4 - Math.abs(tps-3))/4 ),
-      Serpent: clamp01( 0.55*br + 0.25*(tps/6) + 0.20*(1-acc) ),
-      Lion:    clamp01( 0.50*(tps/6) + 0.20*(1-br) + 0.15*acc + 0.15*snitchBonus )
+      Ravenclaw:   clamp01( 0.85*acc + 0.15*(1-br) - 0.10*Math.max(0, tps-4)/4 ),
+      Hufflepuff:  clamp01( 0.70*pers + 0.20*(1-br) + 0.10*Math.max(0, 4 - Math.abs(tps-3))/4 ),
+      Slytherin: clamp01( 0.55*br + 0.25*(tps/6) + 0.20*(1-acc) ),
+      Gryffindor:    clamp01( 0.50*(tps/6) + 0.20*(1-br) + 0.15*acc + 0.15*snitchBonus )
     };
 
     let best="Lion", bestVal=-1;
@@ -384,10 +384,10 @@
 
   function colorHouse(){
     const arr = [
-      {k:'red',   v: orbTally.red,    house:'Lion'},
-      {k:'green', v: orbTally.green,  house:'Serpent'},
-      {k:'blue',  v: orbTally.blue,   house:'Raven'},
-      {k:'yellow',v: orbTally.yellow, house:'Badger'},
+      {k:'red',   v: orbTally.red,    house:'Gryffindor'},
+      {k:'green', v: orbTally.green,  house:'Slytherin'},
+      {k:'blue',  v: orbTally.blue,   house:'Ravenclaw'},
+      {k:'yellow',v: orbTally.yellow, house:'Hufflepuff'},
     ].sort((a,b)=>b.v-a.v);
     return arr[0].v ? arr[0].house : null;
   }
