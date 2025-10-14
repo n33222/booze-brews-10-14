@@ -5,32 +5,400 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 <title>Booze & Brews — Wizard Night</title>
 <style>
-  body { margin:0; background:#0b0f1f; color:#fff; font-family:sans-serif; }
-  canvas { display:block; margin:0 auto; background:#111; border:2px solid #444; border-radius:12px; }
-  .hud { display:flex; justify-content:space-between; max-width:960px; margin:10px auto; }
-  .pill { background:rgba(255,255,255,.1); padding:6px 12px; border-radius:999px; }
-  #logo { position:absolute; top:10px; left:10px; width:100px; opacity:0.9; }
+  :root{
+    --bg:#0b0f1f; --panel:#0e142a; --line:rgba(255,255,255,.18);
+    --txt:#e6e8ee; --muted:#aab0c0;
+    /* house accent colors */
+    --lion:#b71c1c; --lion2:#f1b31c;      /* red + gold */
+    --serpent:#0b8a55; --serpent2:#c0c9c5;/* green + silver */
+    --raven:#1f4aa8; --raven2:#c0843d;    /* blue + copper */
+    --badger:#d4a500; --badger2:#0d0d0d;  /* yellow + black */
+    --accent1:#7c3aed; --accent2:#0ea5e9;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:980px;margin:0 auto;padding:14px}
+  h1{margin:.3rem 0 0.6rem;text-align:center;letter-spacing:.5px}
+  .hud{display:flex;gap:10px;justify-content:space-between;align-items:center;margin:6px 0 10px}
+  .pill{padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line);font-weight:800}
+  .controls{display:flex;gap:10px;align-items:center}
+  .btn{padding:10px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--accent2),var(--accent1));color:#fff;font-weight:800;cursor:pointer}
+  .btn[disabled]{opacity:.55;filter:saturate(.6);cursor:not-allowed}
+  /* canvas box */
+  .stage{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px}
+  canvas{width:100%;height:auto;border-radius:10px;background:#0f172a}
+  /* logo overlay */
+  #brand{position:fixed;left:10px;top:10px;width:96px;opacity:.9;mix-blend-mode:screen;filter:invert(1);pointer-events:none}
+  /* leaderboard */
+  .card{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px}
+  ul.list{list-style:none;margin:0;padding:0}
+  ul.list li{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px dashed var(--line)}
+  .muted{color:var(--muted)}
+  /* modal */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:1000;align-items:center;justify-content:center}
+  .modal{width:min(92%,420px);background:#1f2937;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:center}
+  .modal h2{margin-top:0}
+  .modal input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#111827;color:#fff}
+  .hl-lion{color:var(--lion)}
+  .hl-serpent{color:var(--serpent)}
+  .hl-raven{color:var(--raven)}
+  .hl-badger{color:var(--badger)}
 </style>
 </head>
 <body>
-<img id="logo" src="assets/logo.png" alt="logo">
-<div class="hud">
-  <div class="pill">⏱ Time <span id="time">45</span>s</div>
-  <div class="pill">⭐ Score <span id="score">0</span></div>
-  <div class="pill">🏆 Combo <span id="combo">x0</span></div>
+<img id="brand" src="assets/logo.png" alt="Booze & Brews logo" />
+
+<div class="wrap">
+  <h1>Wizard Night — Reflex Challenge</h1>
+
+  <div class="hud">
+    <div class="pill">⏱ Time <span id="time">45</span>s</div>
+    <div class="pill">⭐ Score <span id="score">0</span></div>
+    <div class="pill">🏆 Combo <span id="combo">x0</span></div>
+    <div class="controls">
+      <button class="btn" id="startBtn">Start Game</button>
+      <label class="pill" style="display:flex;align-items:center;gap:6px;">
+        <input id="sfxToggle" type="checkbox" checked /> SFX
+      </label>
+    </div>
+  </div>
+
+  <div class="stage">
+    <canvas id="game" width="960" height="540"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>How to Play</h2>
+    <p>Tap the <b>good</b> icons to score; avoid <b>dangerous creatures</b>. Colored orbs influence your House, not your score. In the final phase, watch for a <b>Golden Flying Rune</b> worth +100 (spawns once).</p>
+    <p class="muted">Icons: Wand, Spellbook, Potion, Wizard Hat, Owl, Broom (+); Troll, Dementor (–); Orbs: Red/Green/Blue/Yellow (House). Snitch-like rune appears only once near the end.</p>
+  </div>
+
+  <h2 style="margin-top:14px">Leaderboard (Cumulative)</h2>
+  <ul id="board" class="list"></ul>
 </div>
-<canvas id="game" width="960" height="540"></canvas>
-<button id="startBtn">Start Game</button>
+
+<!-- end-of-round modal -->
+<div class="modal-bg" id="endModal">
+  <div class="modal">
+    <h2>Round Finished</h2>
+    <p>Score: <b id="finalScore">0</b></p>
+    <p>House: <b id="finalHouse">—</b></p>
+    <p id="narrative" class="muted" style="min-height:2.2em"></p>
+    <p>Prize: <b id="finalPrize">—</b></p>
+    <input id="playerName" placeholder="Enter your nickname" />
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+      <button class="btn" id="saveBtn">Save</button>
+      <button class="btn" id="againBtn" style="background:linear-gradient(135deg,#f97316,#ef4444)">Play Again</button>
+    </div>
+  </div>
+</div>
 
 <script>
-// ====== REWARDS SETTINGS ======
-const REWARDS = [
-  { condition: (score) => score < 200, prize: "Free Shot" },
-  { condition: (score) => score >= 200 && score < 500, prize: "10% OFF This Cocktail" },
-  { condition: (score) => score >= 500, prize: "A Whole Bottle of Liquor", limit: 3 }
-];
+(function(){
+  // ========= YOU CAN EDIT THESE SETTINGS =========
+  // Rewards Table (edit freely)
+  const REWARDS = [
+    { condition: (s)=> s < 200,                  prize: "Free Shot" },
+    { condition: (s)=> s >= 200 && s < 500,      prize: "10% OFF This Cocktail" },
+    { condition: (s)=> s >= 500,                 prize: "A Whole Bottle of Liquor", limit: 3 }
+  ];
+  const BOTTLE_PRIZE = "A Whole Bottle of Liquor"; // keep in sync with REWARDS
 
-// TODO: Add game logic, phases, snitch, sorting, leaderboard, sounds
+  // Round timing & phases
+  const ROUND_SECONDS = 45;
+  const PHASES = [
+    { until: 15, speed: 1.10 }, // warm-up (base ×1.10 as你之前要求)
+    { until: 30, speed: 1.35 }, // faster
+    { until: 45, speed: 1.65 }  // fastest (+ snitch once)
+  ];
+  const BASE_FALL_MIN = 2.0, BASE_FALL_VAR = 2.0; // base fall speed params
+
+  // Spawn weights (relative chances, color orbs rarer)
+  const SPAWN_WEIGHTS = {
+    wand: 9, spellbook: 7, potion: 9, hat: 7, owl: 6, broom: 8,
+    troll: 5, dementor: 4,
+    orb_red: 2, orb_green: 2, orb_blue: 2, orb_yellow: 2 // rarer than others
+  };
+
+  // Scores (increase sizes too)
+  const VALUES = { wand:7, spellbook:9, potion:6, hat:8, owl:5, broom:10, troll:-15, dementor:-20, snitch:100 };
+  const RADII  = { wand:44, spellbook:54, potion:48, hat:52, owl:48, broom:56, troll:72, dementor:78, snitch:48,
+                   orb_red:36, orb_green:36, orb_blue:36, orb_yellow:36 };
+
+  // Assets (put matching files into ./assets/)
+  const IMG = {
+    wand:"assets/wand.png", spellbook:"assets/spellbook.png", potion:"assets/potion.png",
+    hat:"assets/hat.png", owl:"assets/owl.png", broom:"assets/broom.png",
+    troll:"assets/troll.png", dementor:"assets/dementor.png", snitch:"assets/snitch.png",
+    orb_red:"assets/orb_red.png", orb_green:"assets/orb_green.png", orb_blue:"assets/orb_blue.png", orb_yellow:"assets/orb_yellow.png"
+  };
+  const SFX = {
+    hit:"assets/hit.wav", miss:"assets/miss.wav",
+    countdown:"assets/countdown.wav", tension:"assets/tension.wav"
+  };
+  const STAFF_PASSWORD = "brew2025"; // if you want to lock starting. Set to "" to disable.
+
+  // ========= DOM refs =========
+  const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
+  const HUD = { time:document.getElementById('time'), score:document.getElementById('score'), combo:document.getElementById('combo') };
+  const UI = {
+    startBtn:document.getElementById('startBtn'),
+    sfxToggle:document.getElementById('sfxToggle'),
+    board:document.getElementById('board'),
+    modal:document.getElementById('endModal'),
+    finalScore:document.getElementById('finalScore'),
+    finalHouse:document.getElementById('finalHouse'),
+    narrative:document.getElementById('narrative'),
+    finalPrize:document.getElementById('finalPrize'),
+    playerName:document.getElementById('playerName'),
+    saveBtn:document.getElementById('saveBtn'),
+    againBtn:document.getElementById('againBtn')
+  };
+
+  // ========= preload assets (robust) =========
+  const images = {};
+  function loadImage(key,src){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res({key,i}); i.onerror=()=>res({key,i:null}); i.src=src; }); }
+  function safeDraw(img,x,y,w,h,color){
+    if(img){ ctx.drawImage(img,x,y,w,h); } else { // graceful placeholder
+      ctx.save(); ctx.fillStyle = color || '#6b7280'; ctx.beginPath(); ctx.arc(x+w/2,y+h/2,Math.min(w,h)/2,0,Math.PI*2); ctx.fill(); ctx.restore();
+    }
+  }
+  let audio={}; let sfxEnabled=true;
+  function loadAudio(key,src){ const a=new Audio(); a.src=src; audio[key]=a; }
+  function playSfx(key){ if(!sfxEnabled) return; const a=audio[key]; if(!a) return; try{ a.currentTime=0; a.play(); }catch{} }
+
+  // load
+  Promise.all(Object.entries(IMG).map(([k,src])=>loadImage(k,src))).then(list=>{
+    list.forEach(({key,i})=>{ images[key]=i; });
+  });
+  Object.entries(SFX).forEach(([k,src])=>loadAudio(k,src));
+
+  // ========= state =========
+  const LS_BOARD='bb-wizard-leaderboard', LS_WINNERS='bb-bottle-winners';
+  function loadBoard(){ try{return JSON.parse(localStorage.getItem(LS_BOARD)||'{}')}catch{return {}} }
+  function saveBoard(o){ localStorage.setItem(LS_BOARD, JSON.stringify(o)); }
+  function loadWinners(){ try{return JSON.parse(localStorage.getItem(LS_WINNERS)||'[]')}catch{return []} }
+  function saveWinners(a){ localStorage.setItem(LS_WINNERS, JSON.stringify(a)); }
+  function renderBoard(){ const b=loadBoard(); const arr=Object.entries(b).map(([n,s])=>({n,s})).sort((a,b)=>b.s-a.s).slice(0,10);
+    UI.board.innerHTML = arr.length? "":"<li><span class='muted'>No records yet</span></li>";
+    arr.forEach((r,i)=>{ const li=document.createElement('li'); li.className='list-item'; li.style.cssText="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px dashed var(--line)";
+      li.innerHTML=`<span>#${i+1} ${escapeHtml(r.n)}</span><b>${r.s}</b>`; UI.board.appendChild(li); });
+  }
+  function escapeHtml(s){ return (s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  let running=false, timeLeft=ROUND_SECONDS, score=0, combo=0, taps=0, hits=0, bad=0;
+  let last=0, lastSpawn=0, entities=[], snitchSpawned=false, orbTally={red:0,green:0,blue:0,yellow:0};
+
+  UI.sfxToggle.onchange = () => { sfxEnabled = UI.sfxToggle.checked; };
+
+  function reset(){
+    timeLeft=ROUND_SECONDS; score=0; combo=0; taps=0; hits=0; bad=0;
+    last=0; lastSpawn=0; entities=[]; snitchSpawned=false; orbTally={red:0,green:0,blue:0,yellow:0};
+    HUD.time.textContent=timeLeft; HUD.score.textContent=0; HUD.combo.textContent='x0';
+  }
+  function curPhaseSpeed(){
+    const t = ROUND_SECONDS-timeLeft;
+    for(const p of PHASES){ if(t < p.until) return p.speed; }
+    return PHASES[PHASES.length-1].speed;
+  }
+  function start(){
+    if(STAFF_PASSWORD){
+      const pwd = prompt("Enter staff password:");
+      if(pwd !== STAFF_PASSWORD) { alert("Wrong password."); return; }
+    }
+    // small UX: play countdown once before round
+    playSfx('countdown');
+    reset(); running=true; requestAnimationFrame(loop);
+  }
+  UI.startBtn.onclick = start;
+  UI.againBtn.onclick = start;
+
+  function loop(ts){
+    if(!running) return;
+    if(!last) last=ts; const dt=Math.min(.05,(ts-last)/1000); last=ts;
+    timeLeft=Math.max(0,timeLeft-dt); HUD.time.textContent=Math.ceil(timeLeft);
+
+    // tension sound when last 15s
+    if(Math.ceil(timeLeft)===15) playSfx('tension');
+
+    // spawn
+    if(Date.now()-lastSpawn > 700){
+      lastSpawn=Date.now(); spawn();
+    }
+
+    // update
+    const speed = curPhaseSpeed();
+    entities.forEach(e=>{ e.y += e.vy*speed; e.ttl -= dt*1000; });
+    entities = entities.filter(e=> e.ttl>0 && !e.discard);
+
+    // render
+    draw();
+
+    if(timeLeft<=0){ return end(); }
+    requestAnimationFrame(loop);
+  }
+
+  function weightedPick(){
+    const entries = Object.entries(SPAWN_WEIGHTS);
+    // Only allow snitch in last phase and once
+    const t = ROUND_SECONDS-timeLeft;
+    if(!snitchSpawned && t >= PHASES[2].until-10){ // spawn within last ~15s window
+      if(Math.random()<0.10){ snitchSpawned=true; return "snitch"; }
+    }
+    // normal weighted pick
+    let sum = 0; entries.forEach(([k,v])=> sum+=v);
+    let r = Math.random()*sum;
+    for(const [k,v] of entries){ if((r-=v)<=0) return k; }
+    return entries[0][0];
+  }
+
+  function spawn(){
+    const type = weightedPick();
+    const r = RADII[type];
+    const x = Math.random()*(canvas.width-r*2) + r;
+    const y = -r;
+    const vy = BASE_FALL_MIN + Math.random()*BASE_FALL_VAR;
+    const ttl = type==="snitch" ? 5000 : 8000;
+    entities.push({type,x,y,vy,r,ttl,discard:false});
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    entities.forEach(e=>{
+      const px=e.x-e.r, py=e.y-e.r, s=e.r*2;
+      const placeholder = e.type==="troll"||e.type==="dementor" ? "#ef4444" :
+                          e.type.startsWith("orb_") ? "#f59e0b" : "#60a5fa";
+      safeDraw(images[e.type], px,py, s,s, placeholder);
+    });
+  }
+
+  function getPos(ev){
+    const rect = canvas.getBoundingClientRect();
+    const x = (ev.touches? ev.touches[0].clientX : ev.clientX) - rect.left;
+    const y = (ev.touches? ev.touches[0].clientY : ev.clientY) - rect.top;
+    return { x:x*(canvas.width/rect.width), y:y*(canvas.height/rect.height) };
+  }
+  function onTap(ev){
+    if(!running) return;
+    taps++;
+    const p = getPos(ev);
+    let hit=-1;
+    for(let i=entities.length-1;i>=0;i--){ // top-most first
+      const it=entities[i]; if(Math.hypot(it.x-p.x,it.y-p.y)<it.r){ hit=i; break; }
+    }
+    if(hit>=0){
+      const t=entities[hit]; t.discard=true;
+      if(t.type.startsWith("orb_")){
+        // tally color orbs
+        if(t.type==="orb_red")   orbTally.red++;
+        if(t.type==="orb_green") orbTally.green++;
+        if(t.type==="orb_blue")  orbTally.blue++;
+        if(t.type==="orb_yellow")orbTally.yellow++;
+        playSfx('hit');
+        combo++; HUD.combo.textContent='x'+combo;
+        return;
+      }
+      const v = VALUES[t.type]||0;
+      if(v>0){ score+=v; hits++; combo++; HUD.score.textContent=score; HUD.combo.textContent='x'+combo; playSfx('hit'); }
+      else   { score=Math.max(0,score+v); bad++; combo=0; HUD.score.textContent=score; HUD.combo.textContent='x0'; playSfx('miss'); }
+    } else {
+      combo = Math.max(0, combo-1);
+      HUD.combo.textContent='x'+combo;
+    }
+  }
+  canvas.addEventListener('click', onTap, {passive:true});
+  canvas.addEventListener('touchstart', onTap, {passive:true});
+
+  // ========= Sorting (behavior + color preference) =========
+  function accuracy(){ return taps? (hits/taps) : 0; }
+  function behaviorHouse(){
+    // very rough heuristics for vibe
+    const acc = accuracy();
+    if(acc >= 0.78) return "Raven";
+    if(combo >= 12) return "Badger";
+    if(bad >= 6)    return "Serpent"; // risk-taking / chaotic
+    return "Lion";
+  }
+  function colorHouse(){
+    const arr = [
+      {k:"red",v:orbTally.red, house:"Lion"},
+      {k:"green",v:orbTally.green, house:"Serpent"},
+      {k:"blue",v:orbTally.blue, house:"Raven"},
+      {k:"yellow",v:orbTally.yellow, house:"Badger"},
+    ].sort((a,b)=>b.v-a.v);
+    if(arr[0].v===0) return null;
+    return arr[0].house;
+  }
+  function houseClass(h){ return h==="Lion"?"hl-lion":h==="Serpent"?"hl-serpent":h==="Raven"?"hl-raven":"hl-badger"; }
+  function sortWithNarrative(){
+    const bh = behaviorHouse();
+    const ch = colorHouse();
+    let final = bh, line="";
+    if(ch && ch!==bh){
+      // 50/50 draw between two—keeps it mysterious
+      final = Math.random()<0.5? bh : ch;
+      line = `You played like a ${bh}, yet your eyes favored ${ch} sigils… The Hat hesitates.`;
+    } else if(ch && ch===bh){
+      final = bh;
+      line = `Both your nature and your choices align.`;
+    } else {
+      final = bh;
+      line = `Your actions alone tell the story.`;
+    }
+    return {final, line};
+  }
+
+  // ========= Rewards =========
+  function getReward(s){
+    for(const r of REWARDS){
+      if(r.condition(s)){
+        if(r.limit && r.prize===BOTTLE_PRIZE){
+          const winners = loadWinners();
+          if(winners.length >= r.limit) continue;
+        }
+        return r.prize;
+      }
+    }
+    return "No Prize";
+  }
+
+  // ========= End & Modal =========
+  function end(){
+    running=false;
+    const {final, line} = sortWithNarrative();
+    const prize = getReward(score);
+
+    UI.finalScore.textContent = score;
+    UI.narrative.textContent = line;
+    UI.finalPrize.textContent = prize;
+
+    UI.finalHouse.textContent = final;
+    UI.finalHouse.className = ""; // reset classes
+    UI.finalHouse.classList.add(houseClass(final));
+
+    UI.modal.style.display='flex';
+  }
+
+  UI.saveBtn.onclick = ()=>{
+    const name=(UI.playerName.value||"Guest").trim().slice(0,24);
+    if(!name) return;
+    const board=loadBoard(); board[name]=(board[name]||0)+score; saveBoard(board);
+    // lock bottle winner if applicable
+    const prize = getReward(score);
+    if(prize===BOTTLE_PRIZE){
+      const winners=loadWinners();
+      if(!winners.includes(name)){
+        winners.push(name); saveWinners(winners);
+        alert(`${name} locked as bottle winner! (${winners.length}/${(REWARDS.find(r=>r.prize===BOTTLE_PRIZE)?.limit||3)})`);
+      }
+    }
+    UI.modal.style.display='none';
+    renderBoard();
+  };
+
+  // ========= init =========
+  renderBoard(); reset();
+
+})();
 </script>
 </body>
 </html>
