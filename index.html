@@ -105,12 +105,16 @@
 
   // Round timing & phases
   const ROUND_SECONDS = 45;
+
+// 三階段速度：差異更明顯
   const PHASES = [
-    { until: 15, speed: 1.10 }, // warm-up (base ×1.10 as你之前要求)
-    { until: 30, speed: 1.35 }, // faster
-    { until: 45, speed: 1.65 }  // fastest (+ snitch once)
+    { until: 15, speed: 1.25, spawnMs: 720 }, // Phase 1：暖身
+    { until: 30, speed: 1.65, spawnMs: 540 }, // Phase 2：明顯變快
+    { until: 45, speed: 2.10, spawnMs: 400 }  // Phase 3：很快（此階段會出 Snitch）
   ];
-  const BASE_FALL_MIN = 2.0, BASE_FALL_VAR = 2.0; // base fall speed params
+
+// 基礎掉落速度的隨機範圍（也加大）
+const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
 
   // Spawn weights (relative chances, color orbs rarer)
   const SPAWN_WEIGHTS = {
@@ -162,6 +166,35 @@
       ctx.save(); ctx.fillStyle = color || '#6b7280'; ctx.beginPath(); ctx.arc(x+w/2,y+h/2,Math.min(w,h)/2,0,Math.PI*2); ctx.fill(); ctx.restore();
     }
   }
+  function drawGlow(ctx, cx, cy, radius, rgba) {
+  const g = ctx.createRadialGradient(cx, cy, radius*0.2, cx, cy, radius);
+  const col = rgba || 'rgba(255,255,255,0.35)';
+  g.addColorStop(0, col);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+  function drawOutlineRing(ctx, cx, cy, r) {
+  ctx.save();
+  ctx.lineWidth = Math.max(2, r * 0.08);
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r*0.98, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+}
+  function drawLighten(ctx, img, x, y, w, h, strength = 0.35) {
+  ctx.save();
+  ctx.globalAlpha = strength;
+  ctx.globalCompositeOperation = 'screen';
+  ctx.drawImage(img, x, y, w, h);
+  ctx.restore();
+}
   let audio={}; let sfxEnabled=true;
   function loadAudio(key,src){ const a=new Audio(); a.src=src; audio[key]=a; }
   function playSfx(key){ if(!sfxEnabled) return; const a=audio[key]; if(!a) return; try{ a.currentTime=0; a.play(); }catch{} }
@@ -237,19 +270,20 @@
     requestAnimationFrame(loop);
   }
 
-  function weightedPick(){
-    const entries = Object.entries(SPAWN_WEIGHTS);
-    // Only allow snitch in last phase and once
-    const t = ROUND_SECONDS-timeLeft;
-    if(!snitchSpawned && t >= PHASES[2].until-10){ // spawn within last ~15s window
-      if(Math.random()<0.10){ snitchSpawned=true; return "snitch"; }
+    function weightedPick(){
+    const t = ROUND_SECONDS - timeLeft;
+    // Phase 3 中後段才可能出 Snitch，機率提高
+    if(!snitchSpawned && t >= PHASES[2].until - 12){
+      if (Math.random() < 0.22) { snitchSpawned = true; return "snitch"; }
     }
-    // normal weighted pick
-    let sum = 0; entries.forEach(([k,v])=> sum+=v);
+    // 其他照原先的權重
+    let sum = 0; const entries = Object.entries(SPAWN_WEIGHTS);
+    entries.forEach(([k,v]) => sum += v);
     let r = Math.random()*sum;
-    for(const [k,v] of entries){ if((r-=v)<=0) return k; }
+    for(const [k,v] of entries){ if((r -= v) <= 0) return k; }
     return entries[0][0];
   }
+
 
   function spawn(){
     const type = weightedPick();
@@ -262,14 +296,38 @@
   }
 
   function draw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    entities.forEach(e=>{
-      const px=e.x-e.r, py=e.y-e.r, s=e.r*2;
-      const placeholder = e.type==="troll"||e.type==="dementor" ? "#ef4444" :
-                          e.type.startsWith("orb_") ? "#f59e0b" : "#60a5fa";
-      safeDraw(images[e.type], px,py, s,s, placeholder);
-    });
-  }
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  entities.forEach(e=>{
+    const s = e.r*2;
+    const px = e.x - e.r, py = e.y - e.r;
+    const img = images[e.type];
+
+    // 1) 先畫柔光底盤（讓所有物件都有立體感）
+    drawGlow(ctx, e.x, e.y, e.r*1.05, 'rgba(255,255,255,0.12)');
+
+    // 2) 針對黑暗生物加強可見度：更大的彩色光暈 + 白色描邊 + 提亮
+    if(e.type === 'dementor'){
+      drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(120,190,255,0.45)'); // 冷色光暈
+      drawOutlineRing(ctx, e.x, e.y, e.r);
+      if(img){ drawLighten(ctx, img, px, py, s, s, 0.55); }
+    } else if(e.type === 'troll'){
+      drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(255,160,110,0.45)'); // 暖色光暈
+      drawOutlineRing(ctx, e.x, e.y, e.r);
+      if(img){ drawLighten(ctx, img, px, py, s, s, 0.45); }
+    } else if(e.type === 'snitch'){
+      drawGlow(ctx, e.x, e.y, e.r*1.25, 'rgba(255,210,90,0.45)');
+    } else if(e.type.startsWith('orb_')){
+      drawGlow(ctx, e.x, e.y, e.r*1.2, 'rgba(255,200,120,0.35)');
+    }
+
+    // 3) 正常繪圖（若圖缺失 safeDraw 會自動用佔位）
+    safeDraw(img, px, py, s, s);
+
+    // 4) 再微量提亮（所有物件），保證深色背景下清楚
+    if(img){ drawLighten(ctx, img, px, py, s, s, 0.15); }
+  });
+}
+
 
   function getPos(ev){
     const rect = canvas.getBoundingClientRect();
