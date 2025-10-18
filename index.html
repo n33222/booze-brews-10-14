@@ -18,28 +18,38 @@
   .hud{display:flex;gap:10px;justify-content:space-between;align-items:center;margin:6px 0 10px;flex-wrap:wrap}
   .pill{padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.08);
     border:1px solid var(--line);font-weight:800}
-  .controls{display:flex;gap:10px;align-items:center}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .btn{padding:10px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--accent2),var(--accent1));
     color:#fff;font-weight:800;cursor:pointer}
   .btn[disabled]{opacity:.55;filter:saturate(.6);cursor:not-allowed}
-  .stage{background:#0f172a;border:1px solid var(--line);border-radius:14px;padding:8px}
+  .stage{background:#0f172a;border:1px solid var(--line);border-radius:14px;padding:8px;position:relative}
   canvas{width:100%;height:auto;border-radius:10px;background:#0a1024; touch-action:none;}
-  #brand{position:fixed;left:10px;top:10px;width:96px;opacity:.9;mix-blend-mode:screen;filter:invert(1);pointer-events:none}
+  /* 專注模式：用遮罩讓 Canvas 佔滿視窗（非瀏覽器全屏） */
+  .focus-mask{display:none;position:fixed;inset:0;background:#000;z-index:800}
+  .focus-container{display:none;position:fixed;inset:0;z-index:801;display:flex;align-items:center;justify-content:center;padding:12px}
+  .focus-container .stage{width:min(100vw, 177.78vh); /* 16:9 */ max-height:96vh}
+  #brand{position:fixed;left:10px;top:10px;width:96px;opacity:.9;mix-blend-mode:screen;filter:invert(1);pointer-events:none;z-index:20}
   .card{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px}
   ul.list{list-style:none;margin:0;padding:0}
   ul.list li{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px dashed var(--line)}
   .muted{color:var(--muted)}
   .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:1000;align-items:center;justify-content:center}
-  .modal{width:min(92%,420px);background:#1f2937;border:1px solid var(--line);border-radius:16px;padding:18px;
+  .modal{width:min(92%,480px);background:#1f2937;border:1px solid var(--line);border-radius:16px;padding:18px;
     box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:center}
   .modal h2{margin-top:0}
-  .modal input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#111827;color:#fff}
+  .modal input,.modal select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#111827;color:#fff}
+  /* House Reveal 儀式 */
+  .reveal{display:none;position:fixed;inset:0;z-index:1200;align-items:center;justify-content:center;background:rgba(0,0,0,.86)}
+  .reveal .beam{position:absolute;inset:0;opacity:.0;mix-blend-mode:screen;transition:opacity .2s ease}
+  .reveal .name{position:relative;z-index:2;font-size:40px;font-weight:900;letter-spacing:.04em;text-shadow:0 4px 30px rgba(0,0,0,.6)}
+  .reveal.show .beam{opacity:.9;animation: sweep 1.5s ease forwards}
+  @keyframes sweep {from{transform:translateX(-40%) skewX(-12deg);} to{transform:translateX(40%) skewX(-12deg);} }
 </style>
 </head>
 <body>
 <img id="brand" src="assets/logo.png" alt="logo"/>
 
-<div class="wrap">
+<div class="wrap" id="normalUI">
   <h1>Wizard Night — Reflex Challenge</h1>
 
   <div class="hud">
@@ -48,7 +58,9 @@
     <div class="pill">🏆 Combo <span id="combo">x0</span></div>
     <div class="pill" id="phasePill">Phase 1/3</div>
     <div class="controls">
-      <button class="btn" id="startBtn">Start Game</button>
+      <button class="btn" id="startBtn" title="Long-press 2s for Staff Panel">Start Game</button>
+      <button class="btn" id="focusBtn">Focus Mode</button>
+      <button class="btn" id="exportBtn">Export CSV</button>
       <label class="pill" style="display:flex;align-items:center;gap:6px;">
         <input id="sfxToggle" type="checkbox" checked/> SFX
       </label>
@@ -68,6 +80,20 @@
   <ul id="board" class="list"></ul>
 </div>
 
+<!-- 專注模式容器 -->
+<div class="focus-mask" id="focusMask"></div>
+<div class="focus-container" id="focusUI">
+  <div class="stage" style="width:100%;max-width:1400px">
+    <canvas id="gameFocus" width="960" height="540"></canvas>
+  </div>
+</div>
+
+<!-- House Reveal 儀式 -->
+<div class="reveal" id="reveal">
+  <div class="beam" id="revealBeam"></div>
+  <div class="name" id="revealName">—</div>
+</div>
+
 <!-- End modal -->
 <div class="modal-bg" id="endModal">
   <div class="modal">
@@ -77,9 +103,33 @@
     <p id="narrative" class="muted" style="min-height:2.2em"></p>
     <p>Prize: <b id="finalPrize">—</b></p>
     <input id="playerName" placeholder="Enter your nickname"/>
-    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap">
       <button class="btn" id="saveBtn">Save</button>
+      <a class="btn" id="badgeBtn" download="house-badge.png">Download Badge</a>
       <button class="btn" id="againBtn" style="background:linear-gradient(135deg,#f97316,#ef4444)">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<!-- Staff 面板 -->
+<div class="modal-bg" id="staffModal">
+  <div class="modal" style="text-align:left">
+    <h2>Staff Panel</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label>Free Shot &lt; <input id="th_free" type="number" min="0"/></label></div>
+      <div><label>10% OFF ≥ <input id="th_off" type="number" min="0"/></label></div>
+      <div><label>Whole Bottle ≥ <input id="th_bottle" type="number" min="0"/></label></div>
+      <div></div>
+      <div><label>Bias Gryffindor % <input id="bias_g" type="number" min="-50" max="50" value="0"/></label></div>
+      <div><label>Bias Slytherin % <input id="bias_s" type="number" min="-50" max="50" value="0"/></label></div>
+      <div><label>Bias Ravenclaw % <input id="bias_r" type="number" min="-50" max="50" value="0"/></label></div>
+      <div><label>Bias Hufflepuff % <input id="bias_h" type="number" min="-50" max="50" value="0"/></label></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
+      <button class="btn" id="staffSave">Save</button>
+      <button class="btn" id="staffExport">Export CSV</button>
+      <button class="btn" id="staffClear" style="background:linear-gradient(135deg,#ef4444,#dc2626)">Clear Leaderboard</button>
+      <button class="btn" id="staffClose">Close</button>
     </div>
   </div>
 </div>
@@ -87,8 +137,8 @@
 <script>
 (function(){
   // ====== EASY SETTINGS ======
-  // Rewards
-  const REWARDS = [
+  // Rewards（維持你上一版，之後可在員工面板調）
+  let REWARDS = [
     { condition: s=>s<300,            prize:"Free Shot" },
     { condition: s=>s>=400 && s<600,  prize:"10% OFF This Cocktail" },
     { condition: s=>s>=800,           prize:"A Whole Bottle of Liquor", limit:3 }
@@ -98,9 +148,9 @@
   // Round & phases
   const ROUND_SECONDS = 45;
   const PHASES = [
-    { until: 15, speed: 1.25, spawnMs: 720 }, // P1
-    { until: 30, speed: 1.65, spawnMs: 540 }, // P2
-    { until: 45, speed: 2.10, spawnMs: 400 }  // P3 (snitch)
+    { until: 15, speed: 1.25, spawnMs: 720 },
+    { until: 30, speed: 1.65, spawnMs: 540 },
+    { until: 45, speed: 2.10, spawnMs: 400 }
   ];
   const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
 
@@ -114,10 +164,17 @@
     orb_red:2, orb_green:2, orb_blue:2, orb_yellow:2
   };
 
-  // Scores & sizes (troll/dementor slightly smaller)
+  // Scores & sizes（扣分怪稍小）
   const VALUES = { wand:20, spellbook:10, potion:10, hat:20, owl:15, broom:5, troll:-15, dementor:-20, snitch:100 };
   const RADII  = { wand:44, spellbook:54, potion:48, hat:52, owl:48, broom:56, troll:66, dementor:70, snitch:48,
                    orb_red:36, orb_green:36, orb_blue:36, orb_yellow:36 };
+
+  // 命中判定安全區
+  const SAFE_HIT_SCALE_GOOD = 1.15;  // 好物/顏色球
+  const SAFE_HIT_SCALE_BAD  = 1.00;  // 壞物
+
+  // House Bias（%）：員工面板臨時加權
+  const HOUSE_BIAS = { Gryffindor:0, Slytherin:0, Ravenclaw:0, Hufflepuff:0 };
 
   // Assets
   const IMG = {
@@ -126,35 +183,48 @@
     troll:"assets/troll.png", dementor:"assets/dementor.png", snitch:"assets/snitch.png",
     orb_red:"assets/orb_red.png", orb_green:"assets/orb_green.png", orb_blue:"assets/orb_blue.png", orb_yellow:"assets/orb_yellow.png"
   };
-  const SFX = { hit:"assets/hit.wav", miss:"assets/miss.wav", countdown:"assets/countdown.wav", tension:"assets/tension.wav" };
+  const SFX = { hit:"assets/hit.wav", miss:"assets/miss.wav", countdown:"assets/countdown.wav", tension:"assets/tension.wav", reveal:"assets/reveal.wav" };
   const STAFF_PASSWORD = "brew2025"; // "" to disable
 
   // ====== DOM ======
+  const normalUI = document.getElementById('normalUI');
+  const focusUI  = document.getElementById('focusUI');
+  const focusMask= document.getElementById('focusMask');
   const canvas=document.getElementById('game'), ctx=canvas.getContext('2d');
-  const HUD={
-    time:document.getElementById('time'),
-    score:document.getElementById('score'),
-    combo:document.getElementById('combo'),
-    phaseEl:document.getElementById('phasePill')
-  };
+  const canvasFocus=document.getElementById('gameFocus'), ctxFocus=canvasFocus.getContext('2d');
+  let activeCanvas = canvas, activeCtx = ctx;
+
+  const HUD={ time:el('time'), score:el('score'), combo:el('combo'), phaseEl:el('phasePill') };
   const UI={
-    startBtn:document.getElementById('startBtn'),
-    sfxToggle:document.getElementById('sfxToggle'),
-    board:document.getElementById('board'),
-    modal:document.getElementById('endModal'),
-    finalScore:document.getElementById('finalScore'),
-    finalHouse:document.getElementById('finalHouse'),
-    narrative:document.getElementById('narrative'),
-    finalPrize:document.getElementById('finalPrize'),
-    playerName:document.getElementById('playerName'),
-    saveBtn:document.getElementById('saveBtn'),
-    againBtn:document.getElementById('againBtn')
+    startBtn:el('startBtn'),
+    focusBtn:el('focusBtn'),
+    exportBtn:el('exportBtn'),
+    sfxToggle:el('sfxToggle'),
+    board:el('board'),
+    modal:el('endModal'),
+    finalScore:el('finalScore'),
+    finalHouse:el('finalHouse'),
+    narrative:el('narrative'),
+    finalPrize:el('finalPrize'),
+    playerName:el('playerName'),
+    saveBtn:el('saveBtn'),
+    againBtn:el('againBtn'),
+    badgeBtn:el('badgeBtn')
   };
+  const staffModal = el('staffModal');
+  const staff = {
+    th_free: el('th_free'), th_off: el('th_off'), th_bottle: el('th_bottle'),
+    bias_g: el('bias_g'), bias_s: el('bias_s'), bias_r: el('bias_r'), bias_h: el('bias_h'),
+    save: el('staffSave'), close: el('staffClose'), export: el('staffExport'), clear: el('staffClear')
+  };
+  const reveal = el('reveal'), revealBeam = el('revealBeam'), revealName = el('revealName');
+
+  function el(id){ return document.getElementById(id); }
 
   // ====== preload images & audio ======
   const images={};
   function loadImage(key,src){ return new Promise(res=>{ const i=new Image(); i.onload=()=>res({key,i}); i.onerror=()=>res({key,i:null}); i.src=src; }); }
-  function safeDraw(img,x,y,w,h){ if(img){ ctx.drawImage(img,x,y,w,h); } else { ctx.save(); ctx.fillStyle='#6b7280'; ctx.beginPath(); ctx.arc(x+w/2,y+h/2,Math.min(w,h)/2,0,Math.PI*2); ctx.fill(); ctx.restore(); } }
+  function safeDraw(img,x,y,w,h){ if(img){ activeCtx.drawImage(img,x,y,w,h); } else { activeCtx.save(); activeCtx.fillStyle='#6b7280'; activeCtx.beginPath(); activeCtx.arc(x+w/2,y+h/2,Math.min(w,h)/2,0,Math.PI*2); activeCtx.fill(); activeCtx.restore(); } }
   let audio={}, sfxEnabled=true; UI.sfxToggle.onchange=()=>sfxEnabled=UI.sfxToggle.checked;
   function loadAudio(key,src){ const a=new Audio(); a.src=src; audio[key]=a; }
   function playSfx(key){ if(!sfxEnabled) return; const a=audio[key]; if(!a) return; try{ a.currentTime=0; a.play(); }catch{} }
@@ -164,9 +234,7 @@
 
   // Optional background image
   let bgImg = null;
-  (function preloadBg(){
-    const i = new Image(); i.onload=()=>bgImg=i; i.src='assets/bg.jpg'; // swap yours
-  })();
+  (function preloadBg(){ const i = new Image(); i.onload=()=>bgImg=i; i.src='assets/bg.jpg'; })();
 
   // ====== Leaderboard ======
   const LS_BOARD='bb-wizard-leaderboard', LS_WINNERS='bb-bottle-winners';
@@ -178,12 +246,33 @@
     UI.board.innerHTML = arr.length? "":"<li><span class='muted'>No records yet</span></li>";
     arr.forEach((r,i)=>{ const li=document.createElement('li'); li.innerHTML=`<span>#${i+1} ${escapeHtml(r.n)}</span><b>${r.s}</b>`; UI.board.appendChild(li); });
   }
-  function escapeHtml(s){ return (s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function toCSV(){
+    const b=loadBoard(); const rows=[["Name","Score"]];
+    Object.entries(b).sort((a,b)=>b[1]-a[1]).forEach(([n,s])=>rows.push([n,s]));
+    const csv=rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob=new Blob([csv],{type:'text/csv'}); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='leaderboard.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  UI.exportBtn.onclick=toCSV;
 
   // ====== state ======
   let running=false, timeLeft=ROUND_SECONDS, score=0, combo=0, taps=0, hits=0, bad=0;
   let last=0, lastSpawn=0, entities=[], snitchSpawned=false, orbTally={red:0,green:0,blue:0,yellow:0};
   let maxCombo=0, hitSnitch=false, orbsSpawned=0;
+
+  // 自適應（DPR / 旋轉）
+  function resizeCanvas(target){
+    const container = target===canvas? canvas.parentElement : focusUI.querySelector('.stage');
+    const ratio = 16/9;
+    let w = container.clientWidth;
+    let h = Math.min(container.clientHeight || (w/ratio), w/ratio);
+    if(w/h > ratio) w = h*ratio; else h = w/ratio;
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    target.width = Math.round(w*dpr); target.height = Math.round(h*dpr);
+    target.style.width = Math.round(w)+'px'; target.style.height = Math.round(h)+'px';
+  }
+  function resizeAll(){ resizeCanvas(canvas); resizeCanvas(canvasFocus); }
+  window.addEventListener('resize', resizeAll); window.addEventListener('orientationchange', resizeAll);
 
   function reset(){
     timeLeft=ROUND_SECONDS; score=0; combo=0; taps=0; hits=0; bad=0;
@@ -195,12 +284,12 @@
 
   // ====== draw helpers (glow & lighten) ======
   function drawGlow(ctx,cx,cy,r,rgba){
-    const g = ctx.createRadialGradient(cx,cy,r*0.2,cx,cy,r);
+    const g = activeCtx.createRadialGradient(cx,cy,r*0.2,cx,cy,r);
     g.addColorStop(0, rgba || 'rgba(255,255,255,0.35)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.save(); ctx.globalCompositeOperation='screen'; ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); ctx.restore();
+    activeCtx.save(); activeCtx.globalCompositeOperation='screen'; activeCtx.fillStyle=g; activeCtx.beginPath(); activeCtx.arc(cx,cy,r,0,Math.PI*2); activeCtx.fill(); activeCtx.restore();
   }
-  function drawLighten(ctx,img,x,y,w,h,strength=0.35){ ctx.save(); ctx.globalAlpha=strength; ctx.globalCompositeOperation='screen'; ctx.drawImage(img,x,y,w,h); ctx.restore(); }
+  function drawLighten(ctx,img,x,y,w,h,strength=0.35){ activeCtx.save(); activeCtx.globalAlpha=strength; activeCtx.globalCompositeOperation='screen'; activeCtx.drawImage(img,x,y,w,h); activeCtx.restore(); }
 
   // ====== spawn & draw ======
   function weightedPick(){
@@ -227,10 +316,10 @@
     })();
 
     const rad = RADII[type];
-    const x = Math.random()*(canvas.width - rad*2) + rad;
+    const x = Math.random()*(activeCanvas.width - rad*2) + rad;
     const y = -rad;
-    const vy = BASE_FALL_MIN + Math.random()*BASE_FALL_VAR;
-    const vx = (Math.random()*2 - 1) * (0.6 + Math.random()*0.6);
+    const vy = (BASE_FALL_MIN + Math.random()*BASE_FALL_VAR) * (activeCanvas.height/540);
+    const vx = (Math.random()*2 - 1) * (0.6 + Math.random()*0.6) * (activeCanvas.width/960);
     const ttl = type==="snitch" ? 5000 : 8000;
     const wiggle = Math.random() * Math.PI * 2;
     entities.push({type,x,y,vx,vy,r:rad,ttl,wiggle,discard:false});
@@ -239,45 +328,44 @@
   function draw(){
     // background
     if(bgImg){
-      const ratio = Math.max(canvas.width/bgImg.width, canvas.height/bgImg.height);
+      const ratio = Math.max(activeCanvas.width/bgImg.width, activeCanvas.height/bgImg.height);
       const w = bgImg.width*ratio, h = bgImg.height*ratio;
-      const x = (canvas.width - w)/2, y = (canvas.height - h)/2;
-      ctx.drawImage(bgImg, x, y, w, h);
+      const x = (activeCanvas.width - w)/2, y = (activeCanvas.height - h)/2;
+      activeCtx.drawImage(bgImg, x, y, w, h);
     } else {
-      const grd = ctx.createLinearGradient(0,0,0,canvas.height);
+      const grd = activeCtx.createLinearGradient(0,0,0,activeCanvas.height);
       grd.addColorStop(0,'#0b1028'); grd.addColorStop(1,'#070a1a');
-      ctx.fillStyle = grd; ctx.fillRect(0,0,canvas.width,canvas.height);
+      activeCtx.fillStyle = grd; activeCtx.fillRect(0,0,activeCanvas.width,activeCanvas.height);
     }
 
     entities.forEach(e=>{
       const s=e.r*2, px=e.x-e.r, py=e.y-e.r;
       const img = images[e.type];
 
-      // 底部柔光；生物/球類額外光暈（移除外圈描邊）
-      drawGlow(ctx, e.x, e.y, e.r*1.05, 'rgba(255,255,255,0.12)');
-      if(e.type==='dementor'){ drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(120,190,255,0.45)'); if(img) drawLighten(ctx,img,px,py,s,s,0.55); }
-      else if(e.type==='troll'){ drawGlow(ctx, e.x, e.y, e.r*1.35, 'rgba(255,160,110,0.45)'); if(img) drawLighten(ctx,img,px,py,s,s,0.45); }
-      else if(e.type==='snitch'){ drawGlow(ctx, e.x, e.y, e.r*1.25, 'rgba(255,210,90,0.45)'); }
-      else if(e.type.startsWith('orb_')){ drawGlow(ctx, e.x, e.y, e.r*1.2, 'rgba(255,200,120,0.35)'); }
+      drawGlow(activeCtx, e.x, e.y, e.r*1.05, 'rgba(255,255,255,0.12)');
+      if(e.type==='dementor'){ drawGlow(activeCtx, e.x, e.y, e.r*1.35, 'rgba(120,190,255,0.45)'); if(img) drawLighten(activeCtx,img,px,py,s,s,0.55); }
+      else if(e.type==='troll'){ drawGlow(activeCtx, e.x, e.y, e.r*1.35, 'rgba(255,160,110,0.45)'); if(img) drawLighten(activeCtx,img,px,py,s,s,0.45); }
+      else if(e.type==='snitch'){ drawGlow(activeCtx, e.x, e.y, e.r*1.25, 'rgba(255,210,90,0.45)'); }
+      else if(e.type.startsWith('orb_')){ drawGlow(activeCtx, e.x, e.y, e.r*1.2, 'rgba(255,200,120,0.35)'); }
 
       safeDraw(img, px, py, s, s);
-      if(img) drawLighten(ctx,img,px,py,s,s,0.15);
+      if(img) drawLighten(activeCtx,img,px,py,s,s,0.15);
     });
   }
 
   // ====== input (pointer only) ======
-  canvas.onclick = null; canvas.ontouchstart = null;
-  canvas.removeEventListener('click', onTap, true);
-  canvas.removeEventListener('touchstart', onTap, true);
-  window.addEventListener('click', (e)=>{ // block synthetic click after touch
-    if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) { e.preventDefault(); e.stopPropagation(); }
-  }, true);
-  canvas.addEventListener('pointerdown', onTap, {passive:false, capture:true});
+  [canvas, canvasFocus].forEach(cv=>{
+    cv.onclick = null; cv.ontouchstart = null;
+    cv.removeEventListener('click', onTap, true);
+    cv.removeEventListener('touchstart', onTap, true);
+    cv.addEventListener('pointerdown', onTap, {passive:false, capture:true});
+  });
+  window.addEventListener('click', (e)=>{ if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) { e.preventDefault(); e.stopPropagation(); } }, true);
 
-  function getPos(ev){
-    const rect=canvas.getBoundingClientRect();
-    const x=(ev.clientX-rect.left)*(canvas.width/rect.width);
-    const y=(ev.clientY-rect.top)*(canvas.height/rect.height);
+  function getPos(ev, target){
+    const rect=target.getBoundingClientRect();
+    const x=(ev.clientX-rect.left)*(target.width/rect.width);
+    const y=(ev.clientY-rect.top)*(target.height/rect.height);
     return {x,y};
   }
 
@@ -291,9 +379,14 @@
     lastTapAt = now;
 
     taps++;
-    const p=getPos(ev);
+    const p=getPos(ev, activeCanvas);
     let idx=-1;
-    for(let i=entities.length-1;i>=0;i--){ const it=entities[i]; if(Math.hypot(it.x-p.x,it.y-p.y)<it.r){ idx=i; break; } }
+    for(let i=entities.length-1;i>=0;i--){
+      const it=entities[i];
+      const isBad = (it.type==='troll'||it.type==='dementor');
+      const scale = isBad? SAFE_HIT_SCALE_BAD : SAFE_HIT_SCALE_GOOD;
+      if(Math.hypot(it.x-p.x,it.y-p.y) < it.r*scale){ idx=i; break; }
+    }
 
     if(idx===-1){
       // 空點：combo 歸零（不扣分）
@@ -344,18 +437,19 @@
       e.y += e.vy * speed;
       e.x += e.vx * speed + Math.sin((now/350) + e.wiggle) * 0.6;
       if(e.x < e.r){ e.x=e.r; e.vx=Math.abs(e.vx); }
-      if(e.x > canvas.width - e.r){ e.x=canvas.width-e.r; e.vx=-Math.abs(e.vx); }
+      if(e.x > activeCanvas.width - e.r){ e.x=activeCanvas.width-e.r; e.vx=-Math.abs(e.vx); }
       e.ttl -= dt*1000;
     });
     entities = entities.filter(e=> e.ttl>0 && !e.discard);
 
+    activeCtx.clearRect(0,0,activeCanvas.width,activeCanvas.height);
     draw();
 
     if(timeLeft<=0){ end(); return; }
     requestAnimationFrame(loop);
   }
 
-  // ====== sorting (four-signal + color priority) ======
+  // ====== sorting (four-signal + color priority + Bias) ======
   function accuracy(){ return taps ? (hits / taps) : 0; }
   function tapsPerSecond(){ return taps / ROUND_SECONDS; }
   function badRatio(){ const total = hits + bad; return total ? (bad / total) : 0; }
@@ -365,20 +459,19 @@
     const acc = accuracy();
     const tps = tapsPerSecond();
     const br  = badRatio();
-    const pers = Math.min(1, maxCombo / 12); // resilience for Badger
+    const pers = Math.min(1, maxCombo / 12);
     const snitchBonus = hitSnitch ? 0.25 : 0.0;
 
     const score = {
-      Ravenclaw:   clamp01( 0.85*acc + 0.15*(1-br) - 0.10*Math.max(0, tps-4)/4 ),
-      Hufflepuff:  clamp01( 0.70*pers + 0.20*(1-br) + 0.10*Math.max(0, 4 - Math.abs(tps-3))/4 ),
+      Ravenclaw: clamp01( 0.85*acc + 0.15*(1-br) - 0.10*Math.max(0, tps-4)/4 ),
+      Hufflepuff:clamp01( 0.70*pers + 0.20*(1-br) + 0.10*Math.max(0, 4 - Math.abs(tps-3))/4 ),
       Slytherin: clamp01( 0.55*br + 0.25*(tps/6) + 0.20*(1-acc) ),
-      Gryffindor:    clamp01( 0.50*(tps/6) + 0.20*(1-br) + 0.15*acc + 0.15*snitchBonus )
+      Gryffindor:clamp01( 0.50*(tps/6) + 0.20*(1-br) + 0.15*acc + 0.15*snitchBonus )
     };
-
-    let best="Lion", bestVal=-1;
-    for (const [k,v] of Object.entries(score)){
-      if (v > bestVal){ best = k; bestVal = v; }
-    }
+    // 套用 Bias（百分比）
+    for(const k in score){ score[k] = clamp01(score[k] * (1 + (HOUSE_BIAS[k]||0)/100)); }
+    let best=null, bestVal=-1;
+    for (const [k,v] of Object.entries(score)){ if (v > bestVal){ best = k; bestVal = v; } }
     return best;
   }
 
@@ -423,14 +516,69 @@
     return "No Prize";
   }
 
+  // House Reveal 儀式（1.5s）
+  function houseReveal(house, done){
+    const colorA = {
+      Gryffindor:['#b71c1c','#f1b31c'],
+      Slytherin: ['#0b8a55','#c0c9c5'],
+      Ravenclaw:['#1f4aa8','#c0843d'],
+      Hufflepuff:['#d4a500','#0d0d0d']
+    }[house] || ['#888','#fff'];
+    revealBeam.style.background = `linear-gradient(90deg, transparent, ${colorA[0]}, ${colorA[1]}, transparent)`;
+    revealName.textContent = house;
+    reveal.classList.add('show');
+    reveal.style.display='flex';
+    playSfx('reveal');
+    setTimeout(()=>{ reveal.style.display='none'; reveal.classList.remove('show'); done&&done(); }, 1500);
+  }
+
   function end(){
     running=false;
     const {final,line}=sortWithNarrative();
     const prize=getReward(score);
-    UI.finalScore.textContent=score; UI.narrative.textContent=line; UI.finalPrize.textContent=prize;
-    UI.finalHouse.textContent=final;
-    UI.modal.style.display='flex';
+
+    // 儀式 → 再開結果彈窗
+    houseReveal(final, ()=>{
+      UI.finalScore.textContent=score; UI.narrative.textContent=line; UI.finalPrize.textContent=prize;
+      UI.finalHouse.textContent=final;
+      UI.modal.style.display='flex';
+      // 預先準備徽章下載連結（等輸入名字後也可再按）
+      prepareBadgeLink();
+    });
   }
+
+  // 徽章輸出
+  function badgeCanvas(name, house, score){
+    const c=document.createElement('canvas'); c.width=600; c.height=600;
+    const g=c.getContext('2d');
+    const colors = {
+      Gryffindor:['#3c0b0b','#b71c1c','#f1b31c'],
+      Slytherin: ['#062e22','#0b8a55','#c0c9c5'],
+      Ravenclaw:['#0b1c47','#1f4aa8','#c0843d'],
+      Hufflepuff:['#1a1600','#d4a500','#0d0d0d']
+    }[house] || ['#0b0f1f','#666','#ddd'];
+    const grd=g.createLinearGradient(0,0,600,600);
+    grd.addColorStop(0,colors[0]); grd.addColorStop(.6,colors[1]); grd.addColorStop(1,colors[2]);
+    g.fillStyle=grd; g.fillRect(0,0,600,600);
+    g.fillStyle='rgba(255,255,255,0.15)';
+    for(let i=0;i<12;i++){ g.beginPath(); g.arc(300,300,80+i*18,0,Math.PI*2); g.fill(); }
+    g.fillStyle='#fff'; g.font='700 44px system-ui, sans-serif'; g.textAlign='center';
+    g.fillText(house,300,140);
+    g.font='800 64px system-ui, sans-serif'; g.fillText('Booze & Brews',300,226);
+    g.font='500 28px system-ui, sans-serif'; g.fillText('Wizard Night — Sorting Badge',300,270);
+    g.font='700 42px system-ui, sans-serif'; g.fillText(name||'Guest',300,360);
+    g.font='600 30px system-ui, sans-serif'; g.fillText('Score: '+score,300,402);
+    // 小邊框
+    g.strokeStyle='rgba(255,255,255,0.6)'; g.lineWidth=6; g.strokeRect(12,12,576,576);
+    return c;
+  }
+  function prepareBadgeLink(){
+    const name=(UI.playerName.value||'Guest').trim().slice(0,24);
+    const house=UI.finalHouse.textContent||'House';
+    const c=badgeCanvas(name, house, Number(UI.finalScore.textContent||0));
+    UI.badgeBtn.href = c.toDataURL('image/png');
+  }
+  UI.playerName.addEventListener('input', prepareBadgeLink);
 
   UI.saveBtn.onclick=()=>{
     const name=(UI.playerName.value||"Guest").trim().slice(0,24); if(!name) return;
@@ -440,12 +588,32 @@
         alert(`${name} locked as bottle winner! (${winners.length}/${(REWARDS.find(r=>r.prize===BOTTLE_PRIZE)?.limit||3)})`);
       }
     }
-    UI.modal.style.display='none';
     renderBoard();
+    prepareBadgeLink();
+    UI.modal.style.display='none';
+  };
+  UI.againBtn.onclick=()=>{ UI.modal.style.display='none'; start(); };
+  UI.badgeBtn.onclick=()=>{ /* href 已設好 */ };
+
+  // ====== Focus Mode（Canvas 全屏） ======
+  let inFocus=false;
+  UI.focusBtn.onclick=()=>{
+    inFocus = !inFocus;
+    if(inFocus){
+      // 切到 focus 畫布
+      focusMask.style.display='block'; focusUI.style.display='flex';
+      activeCanvas = canvasFocus; activeCtx = ctxFocus;
+      resizeAll();
+      // 把普通 UI 隱藏但不影響遊戲狀態
+    }else{
+      focusMask.style.display='none'; focusUI.style.display='none';
+      activeCanvas = canvas; activeCtx = ctx;
+      resizeAll();
+    }
   };
 
   // ====== start/reset/password ======
-  function hideAllModals(){ try{ UI.modal.style.display='none'; }catch{} }
+  function hideAllModals(){ try{ UI.modal.style.display='none'; staffModal.style.display='none'; }catch{} }
   function start(){
     hideAllModals();
     document.activeElement && document.activeElement.blur && document.activeElement.blur();
@@ -453,14 +621,58 @@
       const pwd=prompt("Enter staff password:"); if(pwd!==STAFF_PASSWORD){ alert("Wrong password."); return; }
       hideAllModals();
     }
-    playSfx('countdown'); reset(); running=true; requestAnimationFrame(loop);
+    playSfx('countdown'); reset(); running=true; last=0; requestAnimationFrame(loop);
   }
-  UI.startBtn.onclick=start; UI.againBtn.onclick=start;
+  UI.startBtn.onclick=start;
+
+  // 長按 Start → Staff 面板
+  let holdTimer=null;
+  UI.startBtn.addEventListener('pointerdown', ()=>{
+    holdTimer=setTimeout(openStaff, 2000);
+  }, {passive:true});
+  UI.startBtn.addEventListener('pointerup', ()=>{ clearTimeout(holdTimer); });
+  UI.startBtn.addEventListener('pointerleave', ()=>{ clearTimeout(holdTimer); });
+
+  function openStaff(){
+    // 填入目前門檻
+    const free = (REWARDS.find(r=>r.prize==="Free Shot")||{}).condition;
+    const off  = (REWARDS.find(r=>r.prize.includes("10%"))||{}).condition;
+    const bot  = (REWARDS.find(r=>r.prize===BOTTLE_PRIZE)||{}).condition;
+    staff.th_free.value = guessThreshold(free, 0);
+    staff.th_off.value  = guessThreshold(off, 400);
+    staff.th_bottle.value = guessThreshold(bot, 800);
+    staff.bias_g.value = HOUSE_BIAS.Gryffindor;
+    staff.bias_s.value = HOUSE_BIAS.Slytherin;
+    staff.bias_r.value = HOUSE_BIAS.Ravenclaw;
+    staff.bias_h.value = HOUSE_BIAS.Hufflepuff;
+    staffModal.style.display='flex';
+  }
+  function guessThreshold(fn, def){ try{ const s = String(fn); const m = s.match(/s\s*([<>]=?)\s*(\d+)/); return m? Number(m[2]) : def; }catch{ return def; } }
+
+  staff.save.onclick=()=>{
+    const tFree = Number(staff.th_free.value||0);
+    const tOff  = Number(staff.th_off.value||0);
+    const tBottle = Number(staff.th_bottle.value||0);
+    REWARDS = [
+      { condition: s=>s<tFree, prize:"Free Shot" },
+      { condition: s=>s>=tOff && s<999999, prize:"10% OFF This Cocktail" },
+      { condition: s=>s>=tBottle, prize:"A Whole Bottle of Liquor", limit:3 }
+    ];
+    HOUSE_BIAS.Gryffindor = clamp(-50, 50, Number(staff.bias_g.value||0));
+    HOUSE_BIAS.Slytherin  = clamp(-50, 50, Number(staff.bias_s.value||0));
+    HOUSE_BIAS.Ravenclaw  = clamp(-50, 50, Number(staff.bias_r.value||0));
+    HOUSE_BIAS.Hufflepuff = clamp(-50, 50, Number(staff.bias_h.value||0));
+    alert('Saved.');
+  };
+  staff.export.onclick=toCSV;
+  staff.clear.onclick=()=>{ if(confirm('Clear leaderboard?')){ localStorage.removeItem(LS_BOARD); renderBoard(); alert('Cleared.'); } };
+  staff.close.onclick=()=>{ staffModal.style.display='none'; };
 
   // ====== init ======
-  renderBoard(); reset();
+  renderBoard(); reset(); resizeAll();
 
   // util
+  function clamp(min,max,x){x=Number(x); return Math.max(min, Math.min(max, x));}
   function escapeHtml(s){return (s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 })();
 </script>
