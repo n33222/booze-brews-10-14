@@ -24,26 +24,32 @@
   .btn[disabled]{opacity:.55;filter:saturate(.6);cursor:not-allowed}
   .stage{background:#0f172a;border:1px solid var(--line);border-radius:14px;padding:8px;position:relative}
   canvas{width:100%;height:auto;border-radius:10px;background:#0a1024; touch-action:none;}
-  /* 專注模式：遮罩 + 容器（初始隱藏） */
+  /* Focus Mode（初始隱藏，右上角 Exit） */
   .focus-mask{display:none;position:fixed;inset:0;background:#000;z-index:800}
   .focus-container{display:none;position:fixed;inset:0;z-index:801;align-items:center;justify-content:center;padding:12px}
-  .focus-container .stage{width:min(100vw, 177.78vh); /* 16:9 */ max-height:96vh}
+  .focus-container .stage{width:min(100vw, 177.78vh); max-height:96vh}
+  .focus-exit{position:fixed;right:14px;top:14px;z-index:802;padding:10px 14px;border-radius:999px;border:1px solid var(--line);
+    background:rgba(0,0,0,.6);color:#fff;font-weight:800}
   #brand{position:fixed;left:10px;top:10px;width:96px;opacity:.9;mix-blend-mode:screen;filter:invert(1);pointer-events:none;z-index:20}
   .card{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px}
   ul.list{list-style:none;margin:0;padding:0}
   ul.list li{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px dashed var(--line)}
   .muted{color:var(--muted)}
   .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:1000;align-items:center;justify-content:center}
-  .modal{width:min(92%,480px);background:#1f2937;border:1px solid var(--line);border-radius:16px;padding:18px;
-    box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:center}
+  .modal{width:min(92%,520px);background:#1f2937;border:1px solid var(--line);border-radius:16px;padding:18px;
+    box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:left}
   .modal h2{margin-top:0}
-  .modal input,.modal select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#111827;color:#fff}
-  /* House Reveal 儀式 */
-  .reveal{display:none;position:fixed;inset:0;z-index:1200;align-items:center;justify-content:center;background:rgba(0,0,0,.86)}
+  .modal input,.modal select, .modal textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#111827;color:#fff}
+  .modal .actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
+  /* House Reveal（3 秒） */
+  .reveal{display:none;position:fixed;inset:0;z-index:1200;align-items:center;justify-content:center;background:rgba(0,0,0,.9)}
   .reveal .beam{position:absolute;inset:0;opacity:.0;mix-blend-mode:screen;transition:opacity .2s ease}
-  .reveal .name{position:relative;z-index:2;font-size:40px;font-weight:900;letter-spacing:.04em;text-shadow:0 4px 30px rgba(0,0,0,.6)}
-  .reveal.show .beam{opacity:.9;animation: sweep 1.5s ease forwards}
-  @keyframes sweep {from{transform:translateX(-40%) skewX(-12deg);} to{transform:translateX(40%) skewX(-12deg);} }
+  .reveal .name{position:relative;z-index:2;font-size:44px;font-weight:900;letter-spacing:.04em;text-shadow:0 6px 40px rgba(0,0,0,.8)}
+  .reveal .line{position:relative;z-index:2;margin-top:10px;max-width:80vw;text-align:center;opacity:0;transition:opacity .3s ease}
+  .reveal.show .beam{opacity:.9;animation: sweep 2.2s ease forwards}
+  .reveal.show .line1{opacity:1;transition-delay:.7s}
+  .reveal.show .line2{opacity:1;transition-delay:1.2s}
+  @keyframes sweep {from{transform:translateX(-45%) skewX(-12deg);} to{transform:translateX(45%) skewX(-12deg);} }
 </style>
 </head>
 <body>
@@ -58,9 +64,10 @@
     <div class="pill">🏆 Combo <span id="combo">x0</span></div>
     <div class="pill" id="phasePill">Phase 1/3</div>
     <div class="controls">
-      <button class="btn" id="startBtn" title="Long-press 2s for Staff Panel">Start Game</button>
-      <button class="btn" id="focusBtn">Focus Mode</button>
-      <button class="btn" id="exportBtn">Export CSV</button>
+      <button class="btn" id="startBtn" title="Start a round">Start Game</button>
+      <button class="btn" id="focusBtn" title="Canvas fullscreen (non-browser)">Focus Mode</button>
+      <button class="btn" id="staffBtn" title="Open Staff Panel">Staff Panel</button>
+      <button class="btn" id="exportBtn" title="Export leaderboard CSV">Export CSV</button>
       <label class="pill" style="display:flex;align-items:center;gap:6px;">
         <input id="sfxToggle" type="checkbox" checked/> SFX
       </label>
@@ -71,27 +78,41 @@
     <canvas id="game" width="960" height="540"></canvas>
   </div>
 
+  <!-- How to Play（小故事＋完整規則） -->
   <div class="card">
     <h2>How to Play</h2>
-    <p>Tap the <b>good</b> icons to score; avoid <b>dangerous creatures</b>. Colored orbs influence your House only. A <b>Golden Flying Rune</b> worth +100 spawns once near the end.</p>
+    <p><b>“Temporary Permit · Sorting In Progress”</b> — By special decree, our bar hosts a one-night Sorting trial. In 45 seconds, falling charms and roaming shadows will test your reflex; rare House orbs whisper your leanings. Catch the good, dodge the grim, and let the Hat hear your rhythm.</p>
+    <ol style="margin-top:8px">
+      <li><b>Round</b>: 45s, three phases, speed rises over time.</li>
+      <li><b>Score</b>: Good icons — Wand +20, Hat +20, Owl +15, Spellbook +10, Potion +10, Broom +5. Creatures — Troll −15, Dementor −20. A single <b>Golden Flying Rune +100</b> appears near the end.</li>
+      <li><b>House Orbs</b> (Red/Green/Blue/Yellow): no points; affect House only (Red→Gryffindor, Green→Slytherin, Blue→Ravenclaw, Yellow→Hufflepuff).</li>
+      <li><b>Combo</b>: consecutive hits raise your combo; tapping empty space or a creature resets it.</li>
+      <li><b>Sorting</b>: your playstyle (accuracy, pace, errors, max combo, snitch) suggests a House; your color choices suggest another. If they agree—sorted. If they disagree, the Hat chooses, usually leaning toward your preference.</li>
+      <li><b>Rewards</b>: thresholds configurable. Typical: Free Shot / 10% OFF This Cocktail / Whole Bottle (limited).</li>
+      <li><b>Leaderboard</b>: enter a nickname to accumulate points across plays. Top total wins the nightly mystery prize.</li>
+      <li><b>Admission</b>: each <b>House Drink</b> or <b>Signature Cocktail</b> grants one attempt.</li>
+    </ol>
   </div>
 
   <h2 style="margin-top:14px">Leaderboard (Cumulative)</h2>
   <ul id="board" class="list"></ul>
 </div>
 
-<!-- 專注模式容器（初始隱藏） -->
+<!-- Focus Mode -->
 <div class="focus-mask" id="focusMask"></div>
 <div class="focus-container" id="focusUI">
+  <button class="focus-exit" id="focusExit">Exit Focus</button>
   <div class="stage" style="width:100%;max-width:1400px">
     <canvas id="gameFocus" width="960" height="540"></canvas>
   </div>
 </div>
 
-<!-- House Reveal 儀式 -->
+<!-- House Reveal（動畫） -->
 <div class="reveal" id="reveal">
   <div class="beam" id="revealBeam"></div>
   <div class="name" id="revealName">—</div>
+  <div class="line line1" id="revealLine1"></div>
+  <div class="line line2" id="revealLine2"></div>
 </div>
 
 <!-- End modal -->
@@ -100,10 +121,10 @@
     <h2>Round Finished</h2>
     <p>Score: <b id="finalScore">0</b></p>
     <p>House: <b id="finalHouse">—</b></p>
-    <p id="narrative" class="muted" style="min-height:2.2em"></p>
+    <p id="narrative" class="muted" style="min-height:2.6em"></p>
     <p>Prize: <b id="finalPrize">—</b></p>
     <input id="playerName" placeholder="Enter your nickname"/>
-    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap">
+    <div class="actions" style="justify-content:center">
       <button class="btn" id="saveBtn">Save</button>
       <a class="btn" id="badgeBtn" download="house-badge.png">Download Badge</a>
       <button class="btn" id="againBtn" style="background:linear-gradient(135deg,#f97316,#ef4444)">Play Again</button>
@@ -111,9 +132,9 @@
   </div>
 </div>
 
-<!-- Staff 面板 -->
+<!-- Staff 面板（獨立密碼） -->
 <div class="modal-bg" id="staffModal">
-  <div class="modal" style="text-align:left">
+  <div class="modal">
     <h2>Staff Panel</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div><label>Free Shot &lt; <input id="th_free" type="number" min="0"/></label></div>
@@ -125,7 +146,7 @@
       <div><label>Bias Ravenclaw % <input id="bias_r" type="number" min="-50" max="50" value="0"/></label></div>
       <div><label>Bias Hufflepuff % <input id="bias_h" type="number" min="-50" max="50" value="0"/></label></div>
     </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
+    <div class="actions">
       <button class="btn" id="staffSave">Save</button>
       <button class="btn" id="staffExport">Export CSV</button>
       <button class="btn" id="staffClear" style="background:linear-gradient(135deg,#ef4444,#dc2626)">Clear Leaderboard</button>
@@ -137,13 +158,15 @@
 <script>
 (function(){
   // ====== EASY SETTINGS ======
+  // Rewards（面板可調）
   let REWARDS = [
     { condition: s=>s<300,            prize:"Free Shot" },
-    { condition: s=>s>=400 && s<600,  prize:"10% OFF This Cocktail" },
-    { condition: s=>s>=800,           prize:"A Whole Bottle of Liquor", limit:3 }
+    { condition: s=>s>=780 && s<1200, prize:"10% OFF This Cocktail" },
+    { condition: s=>s>=1200,          prize:"A Whole Bottle of Liquor", limit:3 }
   ];
   const BOTTLE_PRIZE = "A Whole Bottle of Liquor";
 
+  // 回合與階段
   const ROUND_SECONDS = 45;
   const PHASES = [
     { until: 15, speed: 1.25, spawnMs: 720 },
@@ -152,23 +175,29 @@
   ];
   const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
 
+  // Orbs 出現保證
   const ORB_TARGET_MIN = 6, ORB_TARGET_MAX = 10;
 
+  // 產生權重（顏色球較少）
   const SPAWN_WEIGHTS = {
     wand:9, spellbook:7, potion:9, hat:7, owl:6, broom:8,
     troll:5, dementor:4,
     orb_red:2, orb_green:2, orb_blue:2, orb_yellow:2
   };
 
+  // 分數／尺寸
   const VALUES = { wand:20, spellbook:10, potion:10, hat:20, owl:15, broom:5, troll:-15, dementor:-20, snitch:100 };
   const RADII  = { wand:44, spellbook:54, potion:48, hat:52, owl:48, broom:56, troll:66, dementor:70, snitch:48,
                    orb_red:36, orb_green:36, orb_blue:36, orb_yellow:36 };
 
-  const SAFE_HIT_SCALE_GOOD = 1.15;
-  const SAFE_HIT_SCALE_BAD  = 1.00;
+  // 命中判定安全區
+  const SAFE_HIT_SCALE_GOOD = 1.15;  // 好物/顏色球
+  const SAFE_HIT_SCALE_BAD  = 1.00;  // 壞物精準
 
+  // House Bias（%）：員工面板臨時加權
   const HOUSE_BIAS = { Gryffindor:0, Slytherin:0, Ravenclaw:0, Hufflepuff:0 };
 
+  // 資產
   const IMG = {
     wand:"assets/wand.png", spellbook:"assets/spellbook.png", potion:"assets/potion.png",
     hat:"assets/hat.png", owl:"assets/owl.png", broom:"assets/broom.png",
@@ -176,14 +205,16 @@
     orb_red:"assets/orb_red.png", orb_green:"assets/orb_green.png", orb_blue:"assets/orb_blue.png", orb_yellow:"assets/orb_yellow.png"
   };
   const SFX = { hit:"assets/hit.wav", miss:"assets/miss.wav", countdown:"assets/countdown.wav", tension:"assets/tension.wav", reveal:"assets/reveal.wav" };
-  const STAFF_PASSWORD = "brew2025";
+
+  // 密碼：開始遊戲不再需要密碼；Staff 面板使用獨立密碼
+  const STAFF_PANEL_PIN = "staff2025";
 
   // ====== DOM ======
-  const normalUI = document.getElementById('normalUI');
-  const focusUI  = document.getElementById('focusUI');
-  const focusMask= document.getElementById('focusMask');
   const canvas=document.getElementById('game'), ctx=canvas.getContext('2d');
   const canvasFocus=document.getElementById('gameFocus'), ctxFocus=canvasFocus.getContext('2d');
+  const focusMask = document.getElementById('focusMask');
+  const focusUI   = document.getElementById('focusUI');
+  const focusExit = document.getElementById('focusExit');
   let activeCanvas = canvas, activeCtx = ctx;
 
   const HUD={ time:el('time'), score:el('score'), combo:el('combo'), phaseEl:el('phasePill') };
@@ -191,6 +222,7 @@
     startBtn:el('startBtn'),
     focusBtn:el('focusBtn'),
     exportBtn:el('exportBtn'),
+    staffBtn:el('staffBtn'),
     sfxToggle:el('sfxToggle'),
     board:el('board'),
     modal:el('endModal'),
@@ -210,6 +242,7 @@
     save: el('staffSave'), close: el('staffClose'), export: el('staffExport'), clear: el('staffClear')
   };
   const reveal = el('reveal'), revealBeam = el('revealBeam'), revealName = el('revealName');
+  const revealLine1 = el('revealLine1'), revealLine2 = el('revealLine2');
 
   function el(id){ return document.getElementById(id); }
 
@@ -224,7 +257,7 @@
   Promise.all(Object.entries(IMG).map(([k,src])=>loadImage(k,src))).then(list=>list.forEach(({key,i})=>images[key]=i));
   Object.entries(SFX).forEach(([k,src])=>loadAudio(k,src));
 
-  // Optional background image
+  // 背景（可換圖）
   let bgImg = null;
   (function preloadBg(){ const i = new Image(); i.onload=()=>bgImg=i; i.src='assets/bg.jpg'; })();
 
@@ -274,16 +307,16 @@
   }
   function phaseIndex(){ const t=ROUND_SECONDS-timeLeft; if(t<PHASES[0].until) return 0; if(t<PHASES[1].until) return 1; return 2; }
 
-  // ====== draw helpers (glow & lighten) ======
-  function drawGlow(ctx,cx,cy,r,rgba){
+  // 繪製（柔光）
+  function drawGlow(cx,cy,r,rgba){
     const g = activeCtx.createRadialGradient(cx,cy,r*0.2,cx,cy,r);
     g.addColorStop(0, rgba || 'rgba(255,255,255,0.35)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     activeCtx.save(); activeCtx.globalCompositeOperation='screen'; activeCtx.fillStyle=g; activeCtx.beginPath(); activeCtx.arc(cx,cy,r,0,Math.PI*2); activeCtx.fill(); activeCtx.restore();
   }
-  function drawLighten(ctx,img,x,y,w,h,strength=0.35){ activeCtx.save(); activeCtx.globalAlpha=strength; activeCtx.globalCompositeOperation='screen'; activeCtx.drawImage(img,x,y,w,h); activeCtx.restore(); }
+  function drawLighten(img,x,y,w,h,strength=0.35){ activeCtx.save(); activeCtx.globalAlpha=strength; activeCtx.globalCompositeOperation='screen'; activeCtx.drawImage(img,x,y,w,h); activeCtx.restore(); }
 
-  // ====== spawn & draw ======
+  // 產生
   function weightedPick(){
     const t = ROUND_SECONDS - timeLeft;
     if(!snitchSpawned && t >= PHASES[2].until - 12){ if(Math.random()<0.22){ snitchSpawned=true; return "snitch"; } }
@@ -293,7 +326,6 @@
     for(const [k,v] of entries){ if((r-=v)<=0) return k; }
     return entries[0][0];
   }
-
   function spawn(){
     const r = Math.random;
     const type = (() => {
@@ -317,6 +349,7 @@
     entities.push({type,x,y,vx,vy,r:rad,ttl,wiggle,discard:false});
   }
 
+  // 畫面
   function draw(){
     if(bgImg){
       const ratio = Math.max(activeCanvas.width/bgImg.width, activeCanvas.height/bgImg.height);
@@ -333,40 +366,36 @@
       const s=e.r*2, px=e.x-e.r, py=e.y-e.r;
       const img = images[e.type];
 
-      drawGlow(activeCtx, e.x, e.y, e.r*1.05, 'rgba(255,255,255,0.12)');
-      if(e.type==='dementor'){ drawGlow(activeCtx, e.x, e.y, e.r*1.35, 'rgba(120,190,255,0.45)'); if(img) drawLighten(activeCtx,img,px,py,s,s,0.55); }
-      else if(e.type==='troll'){ drawGlow(activeCtx, e.x, e.y, e.r*1.35, 'rgba(255,160,110,0.45)'); if(img) drawLighten(activeCtx,img,px,py,s,s,0.45); }
-      else if(e.type==='snitch'){ drawGlow(activeCtx, e.x, e.y, e.r*1.25, 'rgba(255,210,90,0.45)'); }
-      else if(e.type.startsWith('orb_')){ drawGlow(activeCtx, e.x, e.y, e.r*1.2, 'rgba(255,200,120,0.35)'); }
+      drawGlow(e.x, e.y, e.r*1.05, 'rgba(255,255,255,0.12)');
+      if(e.type==='dementor'){ drawGlow(e.x, e.y, e.r*1.35, 'rgba(120,190,255,0.45)'); if(img) drawLighten(img,px,py,s,s,0.55); }
+      else if(e.type==='troll'){ drawGlow(e.x, e.y, e.r*1.35, 'rgba(255,160,110,0.45)'); if(img) drawLighten(img,px,py,s,s,0.45); }
+      else if(e.type==='snitch'){ drawGlow(e.x, e.y, e.r*1.25, 'rgba(255,210,90,0.45)'); }
+      else if(e.type.startsWith('orb_')){ drawGlow(e.x, e.y, e.r*1.2, 'rgba(255,200,120,0.35)'); }
 
       safeDraw(img, px, py, s, s);
-      if(img) drawLighten(activeCtx,img,px,py,s,s,0.15);
+      if(img) drawLighten(img,px,py,s,s,0.15);
     });
   }
 
-  // ====== input (pointer only) ======
+  // 點擊
   [canvas, canvasFocus].forEach(cv=>{
     cv.onclick = null; cv.ontouchstart = null;
-    cv.removeEventListener('click', onTap, true);
-    cv.removeEventListener('touchstart', onTap, true);
     cv.addEventListener('pointerdown', onTap, {passive:false, capture:true});
   });
   window.addEventListener('click', (e)=>{ if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) { e.preventDefault(); e.stopPropagation(); } }, true);
 
+  let lastTapAt=0;
   function getPos(ev, target){
     const rect=target.getBoundingClientRect();
     const x=(ev.clientX-rect.left)*(target.width/rect.width);
     const y=(ev.clientY-rect.top)*(target.height/rect.height);
     return {x,y};
   }
-
-  let lastTapAt=0;
   function onTap(ev){
     ev.preventDefault();
     if(!running) return;
-
     const now=performance.now();
-    if(now - lastTapAt < 250) return; // debounce
+    if(now - lastTapAt < 250) return;
     lastTapAt = now;
 
     taps++;
@@ -379,10 +408,7 @@
       if(Math.hypot(it.x-p.x,it.y-p.y) < it.r*scale){ idx=i; break; }
     }
 
-    if(idx===-1){
-      combo = 0; HUD.combo.textContent = 'x0';
-      return;
-    }
+    if(idx===-1){ combo = 0; HUD.combo.textContent = 'x0'; return; }
 
     const t=entities[idx]; t.discard=true;
 
@@ -407,7 +433,7 @@
     }
   }
 
-  // ====== loop ======
+  // 迴圈
   function loop(ts){
     if(!running) return;
     if(!last) last=ts; const dt=Math.min(.05,(ts-last)/1000); last=ts;
@@ -416,8 +442,6 @@
     HUD.time.textContent=Math.ceil(timeLeft);
 
     const p=phaseIndex(); HUD.phaseEl.textContent=`Phase ${p+1}/3`;
-
-    if(Math.ceil(timeLeft)===15) playSfx('tension');
 
     const now=performance.now();
     if(now - lastSpawn > PHASES[p].spawnMs){ lastSpawn=now; spawn(); }
@@ -439,7 +463,7 @@
     requestAnimationFrame(loop);
   }
 
-  // ====== sorting ======
+  // ====== Sorting（行為＋顏色＋Bias） ======
   function accuracy(){ return taps ? (hits / taps) : 0; }
   function tapsPerSecond(){ return taps / ROUND_SECONDS; }
   function badRatio(){ const total = hits + bad; return total ? (bad / total) : 0; }
@@ -474,25 +498,80 @@
     return arr[0].v ? arr[0].house : null;
   }
 
+  // 分類帽台詞庫（依情境抽兩句）
+  const HatLines = {
+    agree: {
+      Gryffindor: [
+        "You rush, but you don't fear the fall. Red suits your courage.",
+        "Bold first, tidy later. The lion's table has room for you.",
+        "Heart ahead, hands steady—Gryffindor will make use of both."
+      ],
+      Slytherin: [
+        "Not just fast—calculating. The green corridors approve.",
+        "Aim first, then means. Slytherin knows what to do with minds like yours.",
+        "Ambition and craft walk together—welcome to the House of serpents."
+      ],
+      Ravenclaw: [
+        "You can hear answers in the rhythm. Blue is your language.",
+        "Precision over spectacle. The tower lights for you.",
+        "Curiosity makes you precise, not scattered—quills at the ready."
+      ],
+      Hufflepuff: [
+        "Impatient hands stayed outside; steady hands came in with you.",
+        "Patience isn't slow—it's refusal to retreat. Badger's hearth is warm.",
+        "Fair, diligent, faithful—yellow light nods in agreement."
+      ]
+    },
+    preferColor: [
+      "You played like {BH}, yet you kept looking toward {CH}. The Hat listens—{CH}.",
+      "Skill pushes you to {BH}, but your step leans to {CH}. Tonight, I trust your choice.",
+      "In contests I'd send you to {BH}; in belonging, I hand you to {CH}."
+    ],
+    preferBehavior: [
+      "Colors speak—but so do your hands. You belong with {BH}.",
+      "You picked {CH}, but every motion argued for {BH}. You'll grow higher there.",
+      "Interests may change; nature rarely does. Go {BH}, and let them see your pace."
+    ],
+    snitch: [
+      "Gold flashed—and you didn't flinch. Others call it luck; I call it timing.",
+      "Before the bell you reached—courage met instinct."
+    ]
+  };
+
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
   function sortWithNarrative(){
     const BH = behaviorHouseScored();
     const CH = colorHouse();
-    let final = BH, line = "";
+    let final = BH;
+    let line1 = "", line2 = "";
 
     if (CH && CH !== BH){
-      final = Math.random() < 0.70 ? CH : BH;
-      line = `You played like a ${BH}, yet your eyes favored ${CH} sigils… The Hat leans to your choice.`;
+      if (Math.random() < 0.70){ // 尊重玩家偏好
+        final = CH;
+        line1 = pick(HatLines.preferColor).replaceAll("{BH}", BH).replaceAll("{CH}", CH);
+      } else {
+        final = BH;
+        line1 = pick(HatLines.preferBehavior).replaceAll("{BH}", BH).replaceAll("{CH}", CH);
+      }
     } else if (CH && CH === BH){
       final = BH;
-      line = `Both your nature and your choices align.`;
+      line1 = pick(HatLines.agree[final]);
     } else {
       final = BH;
-      line = `Your actions alone tell the story.`;
+      line1 = pick(HatLines.preferBehavior).replaceAll("{BH}", BH).replaceAll("{CH}", "another banner");
     }
-    return {final, line};
+
+    // 追加 Snitch 評語（若有抓到）
+    if (hitSnitch) line2 = pick(HatLines.snitch);
+
+    // 若沒有第二句，補一句典禮式宣告
+    if (!line2) line2 = `Decision delivered: ${final}. The banner remembers your name.`;
+
+    return {final, line1, line2, BH, CH};
   }
 
-  // ====== rewards & end ======
+  // 奬勵
   function getReward(s){
     for(const r of REWARDS){
       if(r.condition(s)){
@@ -505,38 +584,42 @@
     return "No Prize";
   }
 
-  function houseReveal(house, done){
+  // House Reveal（3s 動畫：掃光＋兩行台詞）
+  function houseReveal(house, line1, line2, done){
     const colorA = {
       Gryffindor:['#b71c1c','#f1b31c'],
       Slytherin: ['#0b8a55','#c0c9c5'],
       Ravenclaw:['#1f4aa8','#c0843d'],
       Hufflepuff:['#d4a500','#0d0d0d']
     }[house] || ['#888','#fff'];
-    const reveal = document.getElementById('reveal');
-    const revealBeam = document.getElementById('revealBeam');
-    const revealName = document.getElementById('revealName');
     revealBeam.style.background = `linear-gradient(90deg, transparent, ${colorA[0]}, ${colorA[1]}, transparent)`;
     revealName.textContent = house;
+    revealLine1.textContent = line1 || "";
+    revealLine2.textContent = line2 || "";
     reveal.classList.add('show');
     reveal.style.display='flex';
     playSfx('reveal');
-    setTimeout(()=>{ reveal.style.display='none'; reveal.classList.remove('show'); done&&done(); }, 1500);
+    setTimeout(()=>{ reveal.style.display='none'; reveal.classList.remove('show'); done&&done(); }, 3000);
   }
 
+  // 結束
   function end(){
     running=false;
-    const {final,line}=sortWithNarrative();
+    const {final, line1, line2} = sortWithNarrative();
     const prize=getReward(score);
-    houseReveal(final, ()=>{
-      UI.finalScore.textContent=score; UI.narrative.textContent=line; UI.finalPrize.textContent=prize;
+
+    houseReveal(final, line1, line2, ()=>{
+      UI.finalScore.textContent=score;
+      UI.finalPrize.textContent=prize;
       UI.finalHouse.textContent=final;
+      UI.narrative.textContent = `${line1} ${line2}`;
       UI.modal.style.display='flex';
       prepareBadgeLink();
     });
   }
 
   // 徽章
-  function badgeCanvas(name, house, score){
+  function badgeCanvas(name, house, scoreVal){
     const c=document.createElement('canvas'); c.width=600; c.height=600;
     const g=c.getContext('2d');
     const colors = {
@@ -548,14 +631,13 @@
     const grd=g.createLinearGradient(0,0,600,600);
     grd.addColorStop(0,colors[0]); grd.addColorStop(.6,colors[1]); grd.addColorStop(1,colors[2]);
     g.fillStyle=grd; g.fillRect(0,0,600,600);
-    g.fillStyle='rgba(255,255,255,0.15)';
-    for(let i=0;i<12;i++){ g.beginPath(); g.arc(300,300,80+i*18,0,Math.PI*2); g.fill(); }
+    g.fillStyle='rgba(255,255,255,0.14)'; for(let i=0;i<12;i++){ g.beginPath(); g.arc(300,300,80+i*18,0,Math.PI*2); g.fill(); }
     g.fillStyle='#fff'; g.font='700 44px system-ui, sans-serif'; g.textAlign='center';
     g.fillText(house,300,140);
     g.font='800 64px system-ui, sans-serif'; g.fillText('Booze & Brews',300,226);
     g.font='500 28px system-ui, sans-serif'; g.fillText('Wizard Night — Sorting Badge',300,270);
     g.font='700 42px system-ui, sans-serif'; g.fillText(name||'Guest',300,360);
-    g.font='600 30px system-ui, sans-serif'; g.fillText('Score: '+score,300,402);
+    g.font='600 30px system-ui, sans-serif'; g.fillText('Score: '+scoreVal,300,402);
     g.strokeStyle='rgba(255,255,255,0.6)'; g.lineWidth=6; g.strokeRect(12,12,576,576);
     return c;
   }
@@ -567,6 +649,7 @@
   }
   UI.playerName.addEventListener('input', prepareBadgeLink);
 
+  // 存檔
   UI.saveBtn.onclick=()=>{
     const name=(UI.playerName.value||"Guest").trim().slice(0,24); if(!name) return;
     const board=loadBoard(); board[name]=(board[name]||0)+score; saveBoard(board);
@@ -581,49 +664,48 @@
   };
   UI.againBtn.onclick=()=>{ UI.modal.style.display='none'; start(); };
 
-  // ====== Focus Mode（Canvas 全屏） ======
+  // Focus Mode 切換 & 退出
   let inFocus=false;
-  UI.focusBtn.onclick=()=>{
-    inFocus = !inFocus;
-    if(inFocus){
-      focusMask.style.display='block'; focusUI.style.display='flex';
-      activeCanvas = canvasFocus; activeCtx = ctxFocus;
-      resizeAll();
-    }else{
-      focusMask.style.display='none'; focusUI.style.display='none';
-      activeCanvas = canvas; activeCtx = ctx;
-      resizeAll();
-    }
-  };
+  function enterFocus(){
+    if(inFocus) return;
+    inFocus=true;
+    focusMask.style.display='block'; focusUI.style.display='flex';
+    activeCanvas = canvasFocus; activeCtx = ctxFocus;
+    resizeAll();
+  }
+  function exitFocus(){
+    if(!inFocus) return;
+    inFocus=false;
+    focusMask.style.display='none'; focusUI.style.display='none';
+    activeCanvas = canvas; activeCtx = ctx;
+    resizeAll();
+  }
+  document.getElementById('focusBtn').onclick=enterFocus;
+  document.getElementById('focusExit').onclick=exitFocus;
 
-  // ====== start/reset/password ======
-  function hideAllModals(){ try{ UI.modal.style.display='none'; staffModal.style.display='none'; }catch{} }
+  // Start（無密碼）
   function start(){
-    hideAllModals();
-    document.activeElement && document.activeElement.blur && document.activeElement.blur();
-    if(STAFF_PASSWORD){
-      const pwd=prompt("Enter staff password:"); if(pwd!==STAFF_PASSWORD){ alert("Wrong password."); return; }
-      hideAllModals();
-    }
-    playSfx('countdown'); reset(); running=true; last=0; requestAnimationFrame(loop);
+    UI.modal.style.display='none';
+    reset(); running=true; last=0; requestAnimationFrame(loop);
+    // SFX
+    if(audio.countdown){ try{ audio.countdown.currentTime=0; audio.countdown.play(); }catch{} }
   }
   UI.startBtn.onclick=start;
 
-  // 長按 Start → Staff 面板
-  let holdTimer=null;
-  UI.startBtn.addEventListener('pointerdown', ()=>{
-    holdTimer=setTimeout(openStaff, 2000);
-  }, {passive:true});
-  UI.startBtn.addEventListener('pointerup', ()=>{ clearTimeout(holdTimer); });
-  UI.startBtn.addEventListener('pointerleave', ()=>{ clearTimeout(holdTimer); });
+  // Staff Panel（獨立密碼）
+  UI.staffBtn.onclick=()=>{
+    const pin = prompt("Staff PIN:");
+    if(pin!==STAFF_PANEL_PIN){ alert("Wrong PIN."); return; }
+    openStaff();
+  };
 
   function openStaff(){
     const free = (REWARDS.find(r=>r.prize==="Free Shot")||{}).condition;
     const off  = (REWARDS.find(r=>r.prize.includes("10%"))||{}).condition;
     const bot  = (REWARDS.find(r=>r.prize===BOTTLE_PRIZE)||{}).condition;
-    staff.th_free.value = guessThreshold(free, 0);
-    staff.th_off.value  = guessThreshold(off, 400);
-    staff.th_bottle.value = guessThreshold(bot, 800);
+    staff.th_free.value = guessThreshold(free, 300);
+    staff.th_off.value  = guessThreshold(off, 780);
+    staff.th_bottle.value = guessThreshold(bot, 1200);
     staff.bias_g.value = HOUSE_BIAS.Gryffindor;
     staff.bias_s.value = HOUSE_BIAS.Slytherin;
     staff.bias_r.value = HOUSE_BIAS.Ravenclaw;
@@ -654,7 +736,7 @@
   // ====== init ======
   renderBoard(); reset(); resizeAll();
 
-  // util
+  // utils
   function clamp(min,max,x){x=Number(x); return Math.max(min, Math.min(max, x));}
   function escapeHtml(s){return (s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 })();
