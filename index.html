@@ -41,14 +41,20 @@
   .modal h2{margin-top:0}
   .modal input,.modal select, .modal textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#111827;color:#fff}
   .modal .actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
-  /* House Reveal（3 秒） */
-  .reveal{display:none;position:fixed;inset:0;z-index:1200;align-items:center;justify-content:center;background:rgba(0,0,0,.9)}
+  /* House Reveal（改為底部面板 + 可點關閉 + 5s） */
+  .reveal{display:none;position:fixed;inset:0;z-index:1200;align-items:center;justify-content:center;background:rgba(0,0,0,.85)}
   .reveal .beam{position:absolute;inset:0;opacity:.0;mix-blend-mode:screen;transition:opacity .2s ease}
-  .reveal .name{position:relative;z-index:2;font-size:44px;font-weight:900;letter-spacing:.04em;text-shadow:0 6px 40px rgba(0,0,0,.8)}
-  .reveal .line{position:relative;z-index:2;margin-top:10px;max-width:80vw;text-align:center;opacity:0;transition:opacity .3s ease}
-  .reveal.show .beam{opacity:.9;animation: sweep 2.2s ease forwards}
+  .reveal .panel{
+    position:absolute;left:50%;bottom:6vh;transform:translateX(-50%);
+    width:min(92vw, 880px);background:rgba(0,0,0,.55);border:1px solid var(--line);
+    border-radius:16px;padding:16px 18px;text-align:center;backdrop-filter: blur(4px);
+  }
+  .reveal .name{font-size:44px;font-weight:900;letter-spacing:.04em;text-shadow:0 6px 40px rgba(0,0,0,.8);margin:0 0 4px}
+  .reveal .line{margin:6px 0 0;opacity:0;transition:opacity .3s ease}
+  .reveal.show .beam{opacity:.9;animation: sweep 2.6s ease forwards}
   .reveal.show .line1{opacity:1;transition-delay:.7s}
   .reveal.show .line2{opacity:1;transition-delay:1.2s}
+  .reveal .hint{margin-top:8px;color:#aab0c0;font-size:12px}
   @keyframes sweep {from{transform:translateX(-45%) skewX(-12deg);} to{transform:translateX(45%) skewX(-12deg);} }
 </style>
 </head>
@@ -65,10 +71,12 @@
     <div class="pill" id="phasePill">Phase 1/3</div>
     <div class="controls">
       <button class="btn" id="startBtn" title="Start a round">Start Game</button>
+      <button class="btn" id="endBtn" title="Abort this round">End Round</button>
       <button class="btn" id="focusBtn" title="Canvas fullscreen (non-browser)">Focus Mode</button>
       <button class="btn" id="staffBtn" title="Open Staff Panel">Staff Panel</button>
       <button class="btn" id="exportBtn" title="Export leaderboard CSV">Export CSV</button>
-      <label class="pill" style="display:flex;align-items:center;gap:6px;">
+      <!-- 隱藏 SFX 切換（仍保留功能、預設啟用） -->
+      <label class="pill" id="sfxWrap" style="display:none;align-items:center;gap:6px;">
         <input id="sfxToggle" type="checkbox" checked/> SFX
       </label>
     </div>
@@ -78,18 +86,18 @@
     <canvas id="game" width="960" height="540"></canvas>
   </div>
 
-  <!-- How to Play（小故事＋完整規則） -->
+  <!-- How to Play -->
   <div class="card">
     <h2>How to Play</h2>
     <p><b>“Temporary Permit · Sorting In Progress”</b> — By special decree, our bar hosts a one-night Sorting trial. In 45 seconds, falling charms and roaming shadows will test your reflex; rare House orbs whisper your leanings. Catch the good, dodge the grim, and let the Hat hear your rhythm.</p>
     <ol style="margin-top:8px">
       <li><b>Round</b>: 45s, three phases, speed rises over time.</li>
-      <li><b>Score</b>: Good icons — Wand +20, Hat +20, Owl +15, Spellbook +10, Potion +10, Broom +5. Creatures — Troll −15, Dementor −20. A single <b>Golden Flying Rune +100</b> appears near the end.</li>
-      <li><b>House Orbs</b> (Red/Green/Blue/Yellow): no points; affect House only (Red→Gryffindor, Green→Slytherin, Blue→Ravenclaw, Yellow→Hufflepuff).</li>
-      <li><b>Combo</b>: consecutive hits raise your combo; tapping empty space or a creature resets it.</li>
-      <li><b>Sorting</b>: your playstyle (accuracy, pace, errors, max combo, snitch) suggests a House; your color choices suggest another. If they agree—sorted. If they disagree, the Hat chooses, usually leaning toward your preference.</li>
-      <li><b>Rewards</b>: thresholds configurable. Typical: Free Shot / 10% OFF This Cocktail / Whole Bottle (limited).</li>
-      <li><b>Leaderboard</b>: enter a nickname to accumulate points across plays. Top total wins the nightly mystery prize.</li>
+      <li><b>Score</b>: Wand +20, Hat +20, Owl +15, Spellbook +10, Potion +10, Broom +5; Troll −15, Dementor −20; a single <b>Golden Flying Rune +100</b> near the end.</li>
+      <li><b>House Orbs</b>: no points; affect House only (Red→Gryffindor, Green→Slytherin, Blue→Ravenclaw, Yellow→Hufflepuff).</li>
+      <li><b>Combo</b>: consecutive hits raise combo; tapping empty space or a creature resets it.</li>
+      <li><b>Sorting</b>: behavior + color preference; if they disagree, the Hat usually leans to your choice.</li>
+      <li><b>Rewards</b>: thresholds configurable. Typical: Free Shot / 10% OFF / Whole Bottle (limited).</li>
+      <li><b>Leaderboard</b>: nickname accumulates total points; nightly top wins the mystery prize.</li>
       <li><b>Admission</b>: each <b>House Drink</b> or <b>Signature Cocktail</b> grants one attempt.</li>
     </ol>
   </div>
@@ -107,12 +115,15 @@
   </div>
 </div>
 
-<!-- House Reveal（動畫） -->
-<div class="reveal" id="reveal">
+<!-- House Reveal（動畫：底部面板 + 5s 或點一下關閉） -->
+<div class="reveal" id="reveal" title="Tap to continue">
   <div class="beam" id="revealBeam"></div>
-  <div class="name" id="revealName">—</div>
-  <div class="line line1" id="revealLine1"></div>
-  <div class="line line2" id="revealLine2"></div>
+  <div class="panel">
+    <div class="name" id="revealName">—</div>
+    <div class="line line1" id="revealLine1"></div>
+    <div class="line line2" id="revealLine2"></div>
+    <div class="hint">Tap anywhere to continue</div>
+  </div>
 </div>
 
 <!-- End modal -->
@@ -158,7 +169,6 @@
 <script>
 (function(){
   // ====== EASY SETTINGS ======
-  // Rewards（面板可調）
   let REWARDS = [
     { condition: s=>s<300,            prize:"Free Shot" },
     { condition: s=>s>=780 && s<1200, prize:"10% OFF This Cocktail" },
@@ -166,7 +176,6 @@
   ];
   const BOTTLE_PRIZE = "A Whole Bottle of Liquor";
 
-  // 回合與階段
   const ROUND_SECONDS = 45;
   const PHASES = [
     { until: 15, speed: 1.25, spawnMs: 720 },
@@ -175,29 +184,23 @@
   ];
   const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
 
-  // Orbs 出現保證
   const ORB_TARGET_MIN = 6, ORB_TARGET_MAX = 10;
 
-  // 產生權重（顏色球較少）
   const SPAWN_WEIGHTS = {
     wand:9, spellbook:7, potion:9, hat:7, owl:6, broom:8,
     troll:5, dementor:4,
     orb_red:2, orb_green:2, orb_blue:2, orb_yellow:2
   };
 
-  // 分數／尺寸
   const VALUES = { wand:20, spellbook:10, potion:10, hat:20, owl:15, broom:5, troll:-15, dementor:-20, snitch:100 };
   const RADII  = { wand:44, spellbook:54, potion:48, hat:52, owl:48, broom:56, troll:66, dementor:70, snitch:48,
                    orb_red:36, orb_green:36, orb_blue:36, orb_yellow:36 };
 
-  // 命中判定安全區
-  const SAFE_HIT_SCALE_GOOD = 1.15;  // 好物/顏色球
-  const SAFE_HIT_SCALE_BAD  = 1.00;  // 壞物精準
+  const SAFE_HIT_SCALE_GOOD = 1.15;
+  const SAFE_HIT_SCALE_BAD  = 1.00;
 
-  // House Bias（%）：員工面板臨時加權
   const HOUSE_BIAS = { Gryffindor:0, Slytherin:0, Ravenclaw:0, Hufflepuff:0 };
 
-  // 資產
   const IMG = {
     wand:"assets/wand.png", spellbook:"assets/spellbook.png", potion:"assets/potion.png",
     hat:"assets/hat.png", owl:"assets/owl.png", broom:"assets/broom.png",
@@ -206,7 +209,6 @@
   };
   const SFX = { hit:"assets/hit.wav", miss:"assets/miss.wav", countdown:"assets/countdown.wav", tension:"assets/tension.wav", reveal:"assets/reveal.wav" };
 
-  // 密碼：開始遊戲不再需要密碼；Staff 面板使用獨立密碼
   const STAFF_PANEL_PIN = "staff2025";
 
   // ====== DOM ======
@@ -220,6 +222,7 @@
   const HUD={ time:el('time'), score:el('score'), combo:el('combo'), phaseEl:el('phasePill') };
   const UI={
     startBtn:el('startBtn'),
+    endBtn:el('endBtn'),
     focusBtn:el('focusBtn'),
     exportBtn:el('exportBtn'),
     staffBtn:el('staffBtn'),
@@ -241,23 +244,24 @@
     bias_g: el('bias_g'), bias_s: el('bias_s'), bias_r: el('bias_r'), bias_h: el('bias_h'),
     save: el('staffSave'), close: el('staffClose'), export: el('staffExport'), clear: el('staffClear')
   };
-  const reveal = el('reveal'), revealBeam = el('revealBeam'), revealName = el('revealName');
-  const revealLine1 = el('revealLine1'), revealLine2 = el('revealLine2');
+  const reveal = el('reveal'), revealBeam = el('revealBeam');
+  const revealName = el('revealName'), revealLine1 = el('revealLine1'), revealLine2 = el('revealLine2');
 
   function el(id){ return document.getElementById(id); }
 
-  // ====== preload images & audio ======
+  // ====== preload ======
   const images={};
   function loadImage(key,src){ return new Promise(res=>{ const i=new Image(); i.onload=()=>res({key,i}); i.onerror=()=>res({key,i:null}); i.src=src; }); }
   function safeDraw(img,x,y,w,h){ if(img){ activeCtx.drawImage(img,x,y,w,h); } else { activeCtx.save(); activeCtx.fillStyle='#6b7280'; activeCtx.beginPath(); activeCtx.arc(x+w/2,y+h/2,Math.min(w,h)/2,0,Math.PI*2); activeCtx.fill(); activeCtx.restore(); } }
-  let audio={}, sfxEnabled=true; UI.sfxToggle.onchange=()=>sfxEnabled=UI.sfxToggle.checked;
+  let audio={}, sfxEnabled=true;
+  if(UI.sfxToggle){ UI.sfxToggle.onchange=()=>sfxEnabled=UI.sfxToggle.checked; }
   function loadAudio(key,src){ const a=new Audio(); a.src=src; audio[key]=a; }
   function playSfx(key){ if(!sfxEnabled) return; const a=audio[key]; if(!a) return; try{ a.currentTime=0; a.play(); }catch{} }
 
   Promise.all(Object.entries(IMG).map(([k,src])=>loadImage(k,src))).then(list=>list.forEach(({key,i})=>images[key]=i));
   Object.entries(SFX).forEach(([k,src])=>loadAudio(k,src));
 
-  // 背景（可換圖）
+  // 背景
   let bgImg = null;
   (function preloadBg(){ const i = new Image(); i.onload=()=>bgImg=i; i.src='assets/bg.jpg'; })();
 
@@ -285,7 +289,7 @@
   let last=0, lastSpawn=0, entities=[], snitchSpawned=false, orbTally={red:0,green:0,blue:0,yellow:0};
   let maxCombo=0, hitSnitch=false, orbsSpawned=0;
 
-  // 自適應（DPR / 旋轉）
+  // 自適應
   function resizeCanvas(target){
     const container = target===canvas? canvas.parentElement : focusUI.querySelector('.stage');
     const ratio = 16/9;
@@ -307,7 +311,7 @@
   }
   function phaseIndex(){ const t=ROUND_SECONDS-timeLeft; if(t<PHASES[0].until) return 0; if(t<PHASES[1].until) return 1; return 2; }
 
-  // 繪製（柔光）
+  // 繪製
   function drawGlow(cx,cy,r,rgba){
     const g = activeCtx.createRadialGradient(cx,cy,r*0.2,cx,cy,r);
     g.addColorStop(0, rgba || 'rgba(255,255,255,0.35)');
@@ -316,7 +320,6 @@
   }
   function drawLighten(img,x,y,w,h,strength=0.35){ activeCtx.save(); activeCtx.globalAlpha=strength; activeCtx.globalCompositeOperation='screen'; activeCtx.drawImage(img,x,y,w,h); activeCtx.restore(); }
 
-  // 產生
   function weightedPick(){
     const t = ROUND_SECONDS - timeLeft;
     if(!snitchSpawned && t >= PHASES[2].until - 12){ if(Math.random()<0.22){ snitchSpawned=true; return "snitch"; } }
@@ -349,7 +352,6 @@
     entities.push({type,x,y,vx,vy,r:rad,ttl,wiggle,discard:false});
   }
 
-  // 畫面
   function draw(){
     if(bgImg){
       const ratio = Math.max(activeCanvas.width/bgImg.width, activeCanvas.height/bgImg.height);
@@ -463,7 +465,7 @@
     requestAnimationFrame(loop);
   }
 
-  // ====== Sorting（行為＋顏色＋Bias） ======
+  // Sorting
   function accuracy(){ return taps ? (hits / taps) : 0; }
   function tapsPerSecond(){ return taps / ROUND_SECONDS; }
   function badRatio(){ const total = hits + bad; return total ? (bad / total) : 0; }
@@ -487,7 +489,6 @@
     for (const [k,v] of Object.entries(score)){ if (v > bestVal){ best = k; bestVal = v; } }
     return best;
   }
-
   function colorHouse(){
     const arr = [
       {k:'red',   v: orbTally.red,    house:'Gryffindor'},
@@ -498,7 +499,6 @@
     return arr[0].v ? arr[0].house : null;
   }
 
-  // 分類帽台詞庫（依情境抽兩句）
   const HatLines = {
     agree: {
       Gryffindor: [
@@ -537,7 +537,6 @@
       "Before the bell you reached—courage met instinct."
     ]
   };
-
   function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
   function sortWithNarrative(){
@@ -547,7 +546,7 @@
     let line1 = "", line2 = "";
 
     if (CH && CH !== BH){
-      if (Math.random() < 0.70){ // 尊重玩家偏好
+      if (Math.random() < 0.70){
         final = CH;
         line1 = pick(HatLines.preferColor).replaceAll("{BH}", BH).replaceAll("{CH}", CH);
       } else {
@@ -561,17 +560,11 @@
       final = BH;
       line1 = pick(HatLines.preferBehavior).replaceAll("{BH}", BH).replaceAll("{CH}", "another banner");
     }
-
-    // 追加 Snitch 評語（若有抓到）
     if (hitSnitch) line2 = pick(HatLines.snitch);
-
-    // 若沒有第二句，補一句典禮式宣告
     if (!line2) line2 = `Decision delivered: ${final}. The banner remembers your name.`;
-
     return {final, line1, line2, BH, CH};
   }
 
-  // 奬勵
   function getReward(s){
     for(const r of REWARDS){
       if(r.condition(s)){
@@ -584,7 +577,8 @@
     return "No Prize";
   }
 
-  // House Reveal（3s 動畫：掃光＋兩行台詞）
+  // House Reveal（底部面板 + 5s 或點一下）
+  let revealTimer=null;
   function houseReveal(house, line1, line2, done){
     const colorA = {
       Gryffindor:['#b71c1c','#f1b31c'],
@@ -599,15 +593,23 @@
     reveal.classList.add('show');
     reveal.style.display='flex';
     playSfx('reveal');
-    setTimeout(()=>{ reveal.style.display='none'; reveal.classList.remove('show'); done&&done(); }, 3000);
+
+    // 點一下提早關閉
+    const closeNow = ()=>{
+      clearTimeout(revealTimer);
+      reveal.style.display='none'; reveal.classList.remove('show');
+      reveal.removeEventListener('pointerdown', closeNow);
+      done && done();
+    };
+    reveal.addEventListener('pointerdown', closeNow, {once:true});
+    // 5 秒自動關閉
+    revealTimer = setTimeout(closeNow, 5000);
   }
 
-  // 結束
   function end(){
     running=false;
     const {final, line1, line2} = sortWithNarrative();
     const prize=getReward(score);
-
     houseReveal(final, line1, line2, ()=>{
       UI.finalScore.textContent=score;
       UI.finalPrize.textContent=prize;
@@ -649,7 +651,7 @@
   }
   UI.playerName.addEventListener('input', prepareBadgeLink);
 
-  // 存檔
+  // 存檔與再玩
   UI.saveBtn.onclick=()=>{
     const name=(UI.playerName.value||"Guest").trim().slice(0,24); if(!name) return;
     const board=loadBoard(); board[name]=(board[name]||0)+score; saveBoard(board);
@@ -664,7 +666,7 @@
   };
   UI.againBtn.onclick=()=>{ UI.modal.style.display='none'; start(); };
 
-  // Focus Mode 切換 & 退出
+  // Focus Mode
   let inFocus=false;
   function enterFocus(){
     if(inFocus) return;
@@ -683,22 +685,28 @@
   document.getElementById('focusBtn').onclick=enterFocus;
   document.getElementById('focusExit').onclick=exitFocus;
 
-  // Start（無密碼）
+  // Start / End Round
   function start(){
     UI.modal.style.display='none';
     reset(); running=true; last=0; requestAnimationFrame(loop);
-    // SFX
     if(audio.countdown){ try{ audio.countdown.currentTime=0; audio.countdown.play(); }catch{} }
   }
+  function endRoundAbort(){
+    // 立即中止，不保存、不彈出結算
+    running=false; entities=[]; snitchSpawned=false;
+    // 清畫面並重置 HUD
+    activeCtx.clearRect(0,0,activeCanvas.width,activeCanvas.height);
+    reset();
+  }
   UI.startBtn.onclick=start;
+  UI.endBtn.onclick=endRoundAbort;
 
-  // Staff Panel（獨立密碼）
+  // Staff Panel（獨立 PIN）
   UI.staffBtn.onclick=()=>{
     const pin = prompt("Staff PIN:");
     if(pin!==STAFF_PANEL_PIN){ alert("Wrong PIN."); return; }
     openStaff();
   };
-
   function openStaff(){
     const free = (REWARDS.find(r=>r.prize==="Free Shot")||{}).condition;
     const off  = (REWARDS.find(r=>r.prize.includes("10%"))||{}).condition;
@@ -733,7 +741,7 @@
   staff.clear.onclick=()=>{ if(confirm('Clear leaderboard?')){ localStorage.removeItem(LS_BOARD); renderBoard(); alert('Cleared.'); } };
   staff.close.onclick=()=>{ staffModal.style.display='none'; };
 
-  // ====== init ======
+  // init
   renderBoard(); reset(); resizeAll();
 
   // utils
