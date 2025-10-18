@@ -24,9 +24,9 @@
   .btn[disabled]{opacity:.55;filter:saturate(.6);cursor:not-allowed}
   .stage{background:#0f172a;border:1px solid var(--line);border-radius:14px;padding:8px;position:relative}
   canvas{width:100%;height:auto;border-radius:10px;background:#0a1024; touch-action:none;}
-  /* 專注模式：用遮罩讓 Canvas 佔滿視窗（非瀏覽器全屏） */
+  /* 專注模式：遮罩 + 容器（初始隱藏） */
   .focus-mask{display:none;position:fixed;inset:0;background:#000;z-index:800}
-  .focus-container{display:none;position:fixed;inset:0;z-index:801;display:flex;align-items:center;justify-content:center;padding:12px}
+  .focus-container{display:none;position:fixed;inset:0;z-index:801;align-items:center;justify-content:center;padding:12px}
   .focus-container .stage{width:min(100vw, 177.78vh); /* 16:9 */ max-height:96vh}
   #brand{position:fixed;left:10px;top:10px;width:96px;opacity:.9;mix-blend-mode:screen;filter:invert(1);pointer-events:none;z-index:20}
   .card{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px}
@@ -80,7 +80,7 @@
   <ul id="board" class="list"></ul>
 </div>
 
-<!-- 專注模式容器 -->
+<!-- 專注模式容器（初始隱藏） -->
 <div class="focus-mask" id="focusMask"></div>
 <div class="focus-container" id="focusUI">
   <div class="stage" style="width:100%;max-width:1400px">
@@ -137,7 +137,6 @@
 <script>
 (function(){
   // ====== EASY SETTINGS ======
-  // Rewards（維持你上一版，之後可在員工面板調）
   let REWARDS = [
     { condition: s=>s<300,            prize:"Free Shot" },
     { condition: s=>s>=400 && s<600,  prize:"10% OFF This Cocktail" },
@@ -145,7 +144,6 @@
   ];
   const BOTTLE_PRIZE = "A Whole Bottle of Liquor";
 
-  // Round & phases
   const ROUND_SECONDS = 45;
   const PHASES = [
     { until: 15, speed: 1.25, spawnMs: 720 },
@@ -154,29 +152,23 @@
   ];
   const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
 
-  // Orbs guarantee per round
   const ORB_TARGET_MIN = 6, ORB_TARGET_MAX = 10;
 
-  // Spawn weights (orbs rarer)
   const SPAWN_WEIGHTS = {
     wand:9, spellbook:7, potion:9, hat:7, owl:6, broom:8,
     troll:5, dementor:4,
     orb_red:2, orb_green:2, orb_blue:2, orb_yellow:2
   };
 
-  // Scores & sizes（扣分怪稍小）
   const VALUES = { wand:20, spellbook:10, potion:10, hat:20, owl:15, broom:5, troll:-15, dementor:-20, snitch:100 };
   const RADII  = { wand:44, spellbook:54, potion:48, hat:52, owl:48, broom:56, troll:66, dementor:70, snitch:48,
                    orb_red:36, orb_green:36, orb_blue:36, orb_yellow:36 };
 
-  // 命中判定安全區
-  const SAFE_HIT_SCALE_GOOD = 1.15;  // 好物/顏色球
-  const SAFE_HIT_SCALE_BAD  = 1.00;  // 壞物
+  const SAFE_HIT_SCALE_GOOD = 1.15;
+  const SAFE_HIT_SCALE_BAD  = 1.00;
 
-  // House Bias（%）：員工面板臨時加權
   const HOUSE_BIAS = { Gryffindor:0, Slytherin:0, Ravenclaw:0, Hufflepuff:0 };
 
-  // Assets
   const IMG = {
     wand:"assets/wand.png", spellbook:"assets/spellbook.png", potion:"assets/potion.png",
     hat:"assets/hat.png", owl:"assets/owl.png", broom:"assets/broom.png",
@@ -184,7 +176,7 @@
     orb_red:"assets/orb_red.png", orb_green:"assets/orb_green.png", orb_blue:"assets/orb_blue.png", orb_yellow:"assets/orb_yellow.png"
   };
   const SFX = { hit:"assets/hit.wav", miss:"assets/miss.wav", countdown:"assets/countdown.wav", tension:"assets/tension.wav", reveal:"assets/reveal.wav" };
-  const STAFF_PASSWORD = "brew2025"; // "" to disable
+  const STAFF_PASSWORD = "brew2025";
 
   // ====== DOM ======
   const normalUI = document.getElementById('normalUI');
@@ -264,7 +256,7 @@
   function resizeCanvas(target){
     const container = target===canvas? canvas.parentElement : focusUI.querySelector('.stage');
     const ratio = 16/9;
-    let w = container.clientWidth;
+    let w = container.clientWidth || window.innerWidth;
     let h = Math.min(container.clientHeight || (w/ratio), w/ratio);
     if(w/h > ratio) w = h*ratio; else h = w/ratio;
     const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -326,7 +318,6 @@
   }
 
   function draw(){
-    // background
     if(bgImg){
       const ratio = Math.max(activeCanvas.width/bgImg.width, activeCanvas.height/bgImg.height);
       const w = bgImg.width*ratio, h = bgImg.height*ratio;
@@ -389,7 +380,6 @@
     }
 
     if(idx===-1){
-      // 空點：combo 歸零（不扣分）
       combo = 0; HUD.combo.textContent = 'x0';
       return;
     }
@@ -449,7 +439,7 @@
     requestAnimationFrame(loop);
   }
 
-  // ====== sorting (four-signal + color priority + Bias) ======
+  // ====== sorting ======
   function accuracy(){ return taps ? (hits / taps) : 0; }
   function tapsPerSecond(){ return taps / ROUND_SECONDS; }
   function badRatio(){ const total = hits + bad; return total ? (bad / total) : 0; }
@@ -468,7 +458,6 @@
       Slytherin: clamp01( 0.55*br + 0.25*(tps/6) + 0.20*(1-acc) ),
       Gryffindor:clamp01( 0.50*(tps/6) + 0.20*(1-br) + 0.15*acc + 0.15*snitchBonus )
     };
-    // 套用 Bias（百分比）
     for(const k in score){ score[k] = clamp01(score[k] * (1 + (HOUSE_BIAS[k]||0)/100)); }
     let best=null, bestVal=-1;
     for (const [k,v] of Object.entries(score)){ if (v > bestVal){ best = k; bestVal = v; } }
@@ -516,7 +505,6 @@
     return "No Prize";
   }
 
-  // House Reveal 儀式（1.5s）
   function houseReveal(house, done){
     const colorA = {
       Gryffindor:['#b71c1c','#f1b31c'],
@@ -524,6 +512,9 @@
       Ravenclaw:['#1f4aa8','#c0843d'],
       Hufflepuff:['#d4a500','#0d0d0d']
     }[house] || ['#888','#fff'];
+    const reveal = document.getElementById('reveal');
+    const revealBeam = document.getElementById('revealBeam');
+    const revealName = document.getElementById('revealName');
     revealBeam.style.background = `linear-gradient(90deg, transparent, ${colorA[0]}, ${colorA[1]}, transparent)`;
     revealName.textContent = house;
     reveal.classList.add('show');
@@ -536,18 +527,15 @@
     running=false;
     const {final,line}=sortWithNarrative();
     const prize=getReward(score);
-
-    // 儀式 → 再開結果彈窗
     houseReveal(final, ()=>{
       UI.finalScore.textContent=score; UI.narrative.textContent=line; UI.finalPrize.textContent=prize;
       UI.finalHouse.textContent=final;
       UI.modal.style.display='flex';
-      // 預先準備徽章下載連結（等輸入名字後也可再按）
       prepareBadgeLink();
     });
   }
 
-  // 徽章輸出
+  // 徽章
   function badgeCanvas(name, house, score){
     const c=document.createElement('canvas'); c.width=600; c.height=600;
     const g=c.getContext('2d');
@@ -568,7 +556,6 @@
     g.font='500 28px system-ui, sans-serif'; g.fillText('Wizard Night — Sorting Badge',300,270);
     g.font='700 42px system-ui, sans-serif'; g.fillText(name||'Guest',300,360);
     g.font='600 30px system-ui, sans-serif'; g.fillText('Score: '+score,300,402);
-    // 小邊框
     g.strokeStyle='rgba(255,255,255,0.6)'; g.lineWidth=6; g.strokeRect(12,12,576,576);
     return c;
   }
@@ -593,18 +580,15 @@
     UI.modal.style.display='none';
   };
   UI.againBtn.onclick=()=>{ UI.modal.style.display='none'; start(); };
-  UI.badgeBtn.onclick=()=>{ /* href 已設好 */ };
 
   // ====== Focus Mode（Canvas 全屏） ======
   let inFocus=false;
   UI.focusBtn.onclick=()=>{
     inFocus = !inFocus;
     if(inFocus){
-      // 切到 focus 畫布
       focusMask.style.display='block'; focusUI.style.display='flex';
       activeCanvas = canvasFocus; activeCtx = ctxFocus;
       resizeAll();
-      // 把普通 UI 隱藏但不影響遊戲狀態
     }else{
       focusMask.style.display='none'; focusUI.style.display='none';
       activeCanvas = canvas; activeCtx = ctx;
@@ -634,7 +618,6 @@
   UI.startBtn.addEventListener('pointerleave', ()=>{ clearTimeout(holdTimer); });
 
   function openStaff(){
-    // 填入目前門檻
     const free = (REWARDS.find(r=>r.prize==="Free Shot")||{}).condition;
     const off  = (REWARDS.find(r=>r.prize.includes("10%"))||{}).condition;
     const bot  = (REWARDS.find(r=>r.prize===BOTTLE_PRIZE)||{}).condition;
