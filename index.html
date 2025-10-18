@@ -24,7 +24,7 @@
   .btn[disabled]{opacity:.55;filter:saturate(.6);cursor:not-allowed}
   .stage{background:#0f172a;border:1px solid var(--line);border-radius:14px;padding:8px;position:relative}
   canvas{width:100%;height:auto;border-radius:10px;background:#0a1024; touch-action:none;}
-  /* Focus Mode（初始隱藏，右上角 Exit） */
+  /* Focus Mode */
   .focus-mask{display:none;position:fixed;inset:0;background:#000;z-index:800}
   .focus-container{display:none;position:fixed;inset:0;z-index:801;align-items:center;justify-content:center;padding:12px}
   .focus-container .stage{width:min(100vw, 177.78vh); max-height:96vh}
@@ -41,14 +41,20 @@
   .modal h2{margin-top:0}
   .modal input,.modal select, .modal textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#111827;color:#fff}
   .modal .actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
-  /* House Reveal（改為底部面板 + 可點關閉 + 5s） */
+  /* House Reveal — 底部面板 + 帽子 + 可點關閉 + 5s */
   .reveal{display:none;position:fixed;inset:0;z-index:1200;align-items:center;justify-content:center;background:rgba(0,0,0,.85)}
   .reveal .beam{position:absolute;inset:0;opacity:.0;mix-blend-mode:screen;transition:opacity .2s ease}
   .reveal .panel{
     position:absolute;left:50%;bottom:6vh;transform:translateX(-50%);
-    width:min(92vw, 880px);background:rgba(0,0,0,.55);border:1px solid var(--line);
-    border-radius:16px;padding:16px 18px;text-align:center;backdrop-filter: blur(4px);
+    width:min(92vw, 900px);background:rgba(0,0,0,.55);border:1px solid var(--line);
+    border-radius:16px;padding:16px 18px 14px;text-align:center;backdrop-filter: blur(4px);
   }
+  .reveal .hat{
+    position:absolute;left:50%;transform:translateX(-50%);bottom:calc(6vh + 180px);
+    width:min(38vw, 320px);max-width:340px;filter: drop-shadow(0 12px 40px rgba(0,0,0,.65));
+    opacity:.0;transition:opacity .35s ease;
+  }
+  .reveal.show .hat{opacity:1}
   .reveal .name{font-size:44px;font-weight:900;letter-spacing:.04em;text-shadow:0 6px 40px rgba(0,0,0,.8);margin:0 0 4px}
   .reveal .line{margin:6px 0 0;opacity:0;transition:opacity .3s ease}
   .reveal.show .beam{opacity:.9;animation: sweep 2.6s ease forwards}
@@ -75,7 +81,7 @@
       <button class="btn" id="focusBtn" title="Canvas fullscreen (non-browser)">Focus Mode</button>
       <button class="btn" id="staffBtn" title="Open Staff Panel">Staff Panel</button>
       <button class="btn" id="exportBtn" title="Export leaderboard CSV">Export CSV</button>
-      <!-- 隱藏 SFX 切換（仍保留功能、預設啟用） -->
+      <!-- SFX 切換隱藏；保留功能 -->
       <label class="pill" id="sfxWrap" style="display:none;align-items:center;gap:6px;">
         <input id="sfxToggle" type="checkbox" checked/> SFX
       </label>
@@ -115,9 +121,10 @@
   </div>
 </div>
 
-<!-- House Reveal（動畫：底部面板 + 5s 或點一下關閉） -->
+<!-- House Reveal（加分類帽圖片） -->
 <div class="reveal" id="reveal" title="Tap to continue">
   <div class="beam" id="revealBeam"></div>
+  <img class="hat" id="revealHat" src="assets/sorting_hat.png" alt="Sorting Hat"/>
   <div class="panel">
     <div class="name" id="revealName">—</div>
     <div class="line line1" id="revealLine1"></div>
@@ -143,7 +150,7 @@
   </div>
 </div>
 
-<!-- Staff 面板（獨立密碼） -->
+<!-- Staff 面板 -->
 <div class="modal-bg" id="staffModal">
   <div class="modal">
     <h2>Staff Panel</h2>
@@ -168,14 +175,13 @@
 
 <script>
 (function(){
-  // ====== EASY SETTINGS ======
+  /* ========= SETTINGS ========= */
   let REWARDS = [
     { condition: s=>s<300,            prize:"Free Shot" },
     { condition: s=>s>=780 && s<1200, prize:"10% OFF This Cocktail" },
     { condition: s=>s>=1200,          prize:"A Whole Bottle of Liquor", limit:3 }
   ];
   const BOTTLE_PRIZE = "A Whole Bottle of Liquor";
-
   const ROUND_SECONDS = 45;
   const PHASES = [
     { until: 15, speed: 1.25, spawnMs: 720 },
@@ -183,7 +189,6 @@
     { until: 45, speed: 2.10, spawnMs: 400 }
   ];
   const BASE_FALL_MIN = 2.4, BASE_FALL_VAR = 3.0;
-
   const ORB_TARGET_MIN = 6, ORB_TARGET_MAX = 10;
 
   const SPAWN_WEIGHTS = {
@@ -195,10 +200,7 @@
   const VALUES = { wand:20, spellbook:10, potion:10, hat:20, owl:15, broom:5, troll:-15, dementor:-20, snitch:100 };
   const RADII  = { wand:44, spellbook:54, potion:48, hat:52, owl:48, broom:56, troll:66, dementor:70, snitch:48,
                    orb_red:36, orb_green:36, orb_blue:36, orb_yellow:36 };
-
-  const SAFE_HIT_SCALE_GOOD = 1.15;
-  const SAFE_HIT_SCALE_BAD  = 1.00;
-
+  const SAFE_HIT_SCALE_GOOD = 1.15, SAFE_HIT_SCALE_BAD  = 1.00;
   const HOUSE_BIAS = { Gryffindor:0, Slytherin:0, Ravenclaw:0, Hufflepuff:0 };
 
   const IMG = {
@@ -208,12 +210,11 @@
     orb_red:"assets/orb_red.png", orb_green:"assets/orb_green.png", orb_blue:"assets/orb_blue.png", orb_yellow:"assets/orb_yellow.png"
   };
   const SFX = { hit:"assets/hit.wav", miss:"assets/miss.wav", countdown:"assets/countdown.wav", tension:"assets/tension.wav", reveal:"assets/reveal.wav" };
-
   const STAFF_PANEL_PIN = "staff2025";
 
-  // ====== DOM ======
-  const canvas=document.getElementById('game'), ctx=canvas.getContext('2d');
-  const canvasFocus=document.getElementById('gameFocus'), ctxFocus=canvasFocus.getContext('2d');
+  /* ========= DOM ========= */
+  const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
+  const canvasFocus = document.getElementById('gameFocus'), ctxFocus = canvasFocus.getContext('2d');
   const focusMask = document.getElementById('focusMask');
   const focusUI   = document.getElementById('focusUI');
   const focusExit = document.getElementById('focusExit');
@@ -221,51 +222,38 @@
 
   const HUD={ time:el('time'), score:el('score'), combo:el('combo'), phaseEl:el('phasePill') };
   const UI={
-    startBtn:el('startBtn'),
-    endBtn:el('endBtn'),
-    focusBtn:el('focusBtn'),
-    exportBtn:el('exportBtn'),
-    staffBtn:el('staffBtn'),
+    startBtn:el('startBtn'), endBtn:el('endBtn'),
+    focusBtn:el('focusBtn'), exportBtn:el('exportBtn'), staffBtn:el('staffBtn'),
     sfxToggle:el('sfxToggle'),
-    board:el('board'),
-    modal:el('endModal'),
-    finalScore:el('finalScore'),
-    finalHouse:el('finalHouse'),
-    narrative:el('narrative'),
-    finalPrize:el('finalPrize'),
-    playerName:el('playerName'),
-    saveBtn:el('saveBtn'),
-    againBtn:el('againBtn'),
-    badgeBtn:el('badgeBtn')
+    board:el('board'), modal:el('endModal'),
+    finalScore:el('finalScore'), finalHouse:el('finalHouse'), narrative:el('narrative'), finalPrize:el('finalPrize'),
+    playerName:el('playerName'), saveBtn:el('saveBtn'), againBtn:el('againBtn'), badgeBtn:el('badgeBtn')
   };
   const staffModal = el('staffModal');
   const staff = {
-    th_free: el('th_free'), th_off: el('th_off'), th_bottle: el('th_bottle'),
-    bias_g: el('bias_g'), bias_s: el('bias_s'), bias_r: el('bias_r'), bias_h: el('bias_h'),
-    save: el('staffSave'), close: el('staffClose'), export: el('staffExport'), clear: el('staffClear')
+    th_free:el('th_free'), th_off:el('th_off'), th_bottle:el('th_bottle'),
+    bias_g:el('bias_g'), bias_s:el('bias_s'), bias_r:el('bias_r'), bias_h:el('bias_h'),
+    save:el('staffSave'), close:el('staffClose'), export:el('staffExport'), clear:el('staffClear')
   };
-  const reveal = el('reveal'), revealBeam = el('revealBeam');
+  const reveal = el('reveal'), revealBeam = el('revealBeam'), revealHat = el('revealHat');
   const revealName = el('revealName'), revealLine1 = el('revealLine1'), revealLine2 = el('revealLine2');
 
   function el(id){ return document.getElementById(id); }
 
-  // ====== preload ======
+  /* ========= Preload ========= */
   const images={};
   function loadImage(key,src){ return new Promise(res=>{ const i=new Image(); i.onload=()=>res({key,i}); i.onerror=()=>res({key,i:null}); i.src=src; }); }
   function safeDraw(img,x,y,w,h){ if(img){ activeCtx.drawImage(img,x,y,w,h); } else { activeCtx.save(); activeCtx.fillStyle='#6b7280'; activeCtx.beginPath(); activeCtx.arc(x+w/2,y+h/2,Math.min(w,h)/2,0,Math.PI*2); activeCtx.fill(); activeCtx.restore(); } }
-  let audio={}, sfxEnabled=true;
-  if(UI.sfxToggle){ UI.sfxToggle.onchange=()=>sfxEnabled=UI.sfxToggle.checked; }
+  let audio={}, sfxEnabled=true; if(UI.sfxToggle){ UI.sfxToggle.onchange=()=>sfxEnabled=UI.sfxToggle.checked; }
   function loadAudio(key,src){ const a=new Audio(); a.src=src; audio[key]=a; }
   function playSfx(key){ if(!sfxEnabled) return; const a=audio[key]; if(!a) return; try{ a.currentTime=0; a.play(); }catch{} }
 
   Promise.all(Object.entries(IMG).map(([k,src])=>loadImage(k,src))).then(list=>list.forEach(({key,i})=>images[key]=i));
   Object.entries(SFX).forEach(([k,src])=>loadAudio(k,src));
 
-  // 背景
-  let bgImg = null;
-  (function preloadBg(){ const i = new Image(); i.onload=()=>bgImg=i; i.src='assets/bg.jpg'; })();
+  let bgImg = null; (function(){ const i=new Image(); i.onload=()=>bgImg=i; i.src='assets/bg.jpg'; })();
 
-  // ====== Leaderboard ======
+  /* ========= Leaderboard ========= */
   const LS_BOARD='bb-wizard-leaderboard', LS_WINNERS='bb-bottle-winners';
   function loadBoard(){ try{return JSON.parse(localStorage.getItem(LS_BOARD)||'{}')}catch{return {}} }
   function saveBoard(o){ localStorage.setItem(LS_BOARD, JSON.stringify(o)); }
@@ -284,12 +272,12 @@
   }
   UI.exportBtn.onclick=toCSV;
 
-  // ====== state ======
+  /* ========= State ========= */
   let running=false, timeLeft=ROUND_SECONDS, score=0, combo=0, taps=0, hits=0, bad=0;
   let last=0, lastSpawn=0, entities=[], snitchSpawned=false, orbTally={red:0,green:0,blue:0,yellow:0};
   let maxCombo=0, hitSnitch=false, orbsSpawned=0;
 
-  // 自適應
+  /* ========= Responsive ========= */
   function resizeCanvas(target){
     const container = target===canvas? canvas.parentElement : focusUI.querySelector('.stage');
     const ratio = 16/9;
@@ -311,7 +299,7 @@
   }
   function phaseIndex(){ const t=ROUND_SECONDS-timeLeft; if(t<PHASES[0].until) return 0; if(t<PHASES[1].until) return 1; return 2; }
 
-  // 繪製
+  /* ========= Draw ========= */
   function drawGlow(cx,cy,r,rgba){
     const g = activeCtx.createRadialGradient(cx,cy,r*0.2,cx,cy,r);
     g.addColorStop(0, rgba || 'rgba(255,255,255,0.35)');
@@ -379,7 +367,7 @@
     });
   }
 
-  // 點擊
+  /* ========= Input ========= */
   [canvas, canvasFocus].forEach(cv=>{
     cv.onclick = null; cv.ontouchstart = null;
     cv.addEventListener('pointerdown', onTap, {passive:false, capture:true});
@@ -409,7 +397,6 @@
       const scale = isBad? SAFE_HIT_SCALE_BAD : SAFE_HIT_SCALE_GOOD;
       if(Math.hypot(it.x-p.x,it.y-p.y) < it.r*scale){ idx=i; break; }
     }
-
     if(idx===-1){ combo = 0; HUD.combo.textContent = 'x0'; return; }
 
     const t=entities[idx]; t.discard=true;
@@ -435,7 +422,7 @@
     }
   }
 
-  // 迴圈
+  /* ========= Loop ========= */
   function loop(ts){
     if(!running) return;
     if(!last) last=ts; const dt=Math.min(.05,(ts-last)/1000); last=ts;
@@ -465,19 +452,16 @@
     requestAnimationFrame(loop);
   }
 
-  // Sorting
+  /* ========= Sorting ========= */
   function accuracy(){ return taps ? (hits / taps) : 0; }
   function tapsPerSecond(){ return taps / ROUND_SECONDS; }
   function badRatio(){ const total = hits + bad; return total ? (bad / total) : 0; }
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
 
   function behaviorHouseScored(){
-    const acc = accuracy();
-    const tps = tapsPerSecond();
-    const br  = badRatio();
+    const acc = accuracy(), tps = tapsPerSecond(), br  = badRatio();
     const pers = Math.min(1, maxCombo / 12);
     const snitchBonus = hitSnitch ? 0.25 : 0.0;
-
     const score = {
       Ravenclaw: clamp01( 0.85*acc + 0.15*(1-br) - 0.10*Math.max(0, tps-4)/4 ),
       Hufflepuff:clamp01( 0.70*pers + 0.20*(1-br) + 0.10*Math.max(0, 4 - Math.abs(tps-3))/4 ),
@@ -546,25 +530,19 @@
     let line1 = "", line2 = "";
 
     if (CH && CH !== BH){
-      if (Math.random() < 0.70){
-        final = CH;
-        line1 = pick(HatLines.preferColor).replaceAll("{BH}", BH).replaceAll("{CH}", CH);
-      } else {
-        final = BH;
-        line1 = pick(HatLines.preferBehavior).replaceAll("{BH}", BH).replaceAll("{CH}", CH);
-      }
+      if (Math.random() < 0.70){ final = CH; line1 = pick(HatLines.preferColor).replaceAll("{BH}", BH).replaceAll("{CH}", CH); }
+      else { final = BH; line1 = pick(HatLines.preferBehavior).replaceAll("{BH}", BH).replaceAll("{CH}", CH); }
     } else if (CH && CH === BH){
-      final = BH;
-      line1 = pick(HatLines.agree[final]);
+      final = BH; line1 = pick(HatLines.agree[final]);
     } else {
-      final = BH;
-      line1 = pick(HatLines.preferBehavior).replaceAll("{BH}", BH).replaceAll("{CH}", "another banner");
+      final = BH; line1 = pick(HatLines.preferBehavior).replaceAll("{BH}", BH).replaceAll("{CH}", "another banner");
     }
     if (hitSnitch) line2 = pick(HatLines.snitch);
     if (!line2) line2 = `Decision delivered: ${final}. The banner remembers your name.`;
     return {final, line1, line2, BH, CH};
   }
 
+  /* ========= Rewards & End ========= */
   function getReward(s){
     for(const r of REWARDS){
       if(r.condition(s)){
@@ -577,7 +555,6 @@
     return "No Prize";
   }
 
-  // House Reveal（底部面板 + 5s 或點一下）
   let revealTimer=null;
   function houseReveal(house, line1, line2, done){
     const colorA = {
@@ -592,9 +569,9 @@
     revealLine2.textContent = line2 || "";
     reveal.classList.add('show');
     reveal.style.display='flex';
+    revealHat.style.display='block';
     playSfx('reveal');
 
-    // 點一下提早關閉
     const closeNow = ()=>{
       clearTimeout(revealTimer);
       reveal.style.display='none'; reveal.classList.remove('show');
@@ -602,7 +579,6 @@
       done && done();
     };
     reveal.addEventListener('pointerdown', closeNow, {once:true});
-    // 5 秒自動關閉
     revealTimer = setTimeout(closeNow, 5000);
   }
 
@@ -620,7 +596,7 @@
     });
   }
 
-  // 徽章
+  /* ========= Badge ========= */
   function badgeCanvas(name, house, scoreVal){
     const c=document.createElement('canvas'); c.width=600; c.height=600;
     const g=c.getContext('2d');
@@ -651,62 +627,30 @@
   }
   UI.playerName.addEventListener('input', prepareBadgeLink);
 
-  // 存檔與再玩
-  UI.saveBtn.onclick=()=>{
-    const name=(UI.playerName.value||"Guest").trim().slice(0,24); if(!name) return;
-    const board=loadBoard(); board[name]=(board[name]||0)+score; saveBoard(board);
-    if(getReward(score)===BOTTLE_PRIZE){
-      const winners=loadWinners(); if(!winners.includes(name)){ winners.push(name); saveWinners(winners);
-        alert(`${name} locked as bottle winner! (${winners.length}/${(REWARDS.find(r=>r.prize===BOTTLE_PRIZE)?.limit||3)})`);
-      }
-    }
-    renderBoard();
-    prepareBadgeLink();
-    UI.modal.style.display='none';
+  /* ========= Start / End / Focus / Staff ========= */
+  UI.startBtn.onclick = start;
+  UI.endBtn.onclick   = endRoundAbort;
+  document.getElementById('focusBtn').onclick = enterFocus;
+  document.getElementById('focusExit').onclick = exitFocus;
+  UI.staffBtn.onclick = ()=>{
+    const pin = prompt("Staff PIN:"); if(pin!==STAFF_PANEL_PIN){ alert("Wrong PIN."); return; } openStaff();
   };
-  UI.againBtn.onclick=()=>{ UI.modal.style.display='none'; start(); };
+  UI.exportBtn.onclick = toCSV;
 
-  // Focus Mode
-  let inFocus=false;
-  function enterFocus(){
-    if(inFocus) return;
-    inFocus=true;
-    focusMask.style.display='block'; focusUI.style.display='flex';
-    activeCanvas = canvasFocus; activeCtx = ctxFocus;
-    resizeAll();
-  }
-  function exitFocus(){
-    if(!inFocus) return;
-    inFocus=false;
-    focusMask.style.display='none'; focusUI.style.display='none';
-    activeCanvas = canvas; activeCtx = ctx;
-    resizeAll();
-  }
-  document.getElementById('focusBtn').onclick=enterFocus;
-  document.getElementById('focusExit').onclick=exitFocus;
-
-  // Start / End Round
   function start(){
     UI.modal.style.display='none';
     reset(); running=true; last=0; requestAnimationFrame(loop);
     if(audio.countdown){ try{ audio.countdown.currentTime=0; audio.countdown.play(); }catch{} }
   }
   function endRoundAbort(){
-    // 立即中止，不保存、不彈出結算
     running=false; entities=[]; snitchSpawned=false;
-    // 清畫面並重置 HUD
     activeCtx.clearRect(0,0,activeCanvas.width,activeCanvas.height);
     reset();
   }
-  UI.startBtn.onclick=start;
-  UI.endBtn.onclick=endRoundAbort;
+  let inFocus=false;
+  function enterFocus(){ if(inFocus) return; inFocus=true; focusMask.style.display='block'; focusUI.style.display='flex'; activeCanvas = canvasFocus; activeCtx = ctxFocus; resizeAll(); }
+  function exitFocus(){ if(!inFocus) return; inFocus=false; focusMask.style.display='none'; focusUI.style.display='none'; activeCanvas = canvas; activeCtx = ctx; resizeAll(); }
 
-  // Staff Panel（獨立 PIN）
-  UI.staffBtn.onclick=()=>{
-    const pin = prompt("Staff PIN:");
-    if(pin!==STAFF_PANEL_PIN){ alert("Wrong PIN."); return; }
-    openStaff();
-  };
   function openStaff(){
     const free = (REWARDS.find(r=>r.prize==="Free Shot")||{}).condition;
     const off  = (REWARDS.find(r=>r.prize.includes("10%"))||{}).condition;
@@ -741,10 +685,10 @@
   staff.clear.onclick=()=>{ if(confirm('Clear leaderboard?')){ localStorage.removeItem(LS_BOARD); renderBoard(); alert('Cleared.'); } };
   staff.close.onclick=()=>{ staffModal.style.display='none'; };
 
-  // init
+  /* ========= Init ========= */
   renderBoard(); reset(); resizeAll();
 
-  // utils
+  /* ========= Utils ========= */
   function clamp(min,max,x){x=Number(x); return Math.max(min, Math.min(max, x));}
   function escapeHtml(s){return (s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 })();
