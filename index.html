@@ -483,44 +483,72 @@
     return arr[0].v ? arr[0].house : null;
   }
 
-  const HatLines = {
-    agree: {
-      Gryffindor: [
-        "You rush, but you don't fear the fall. Red suits your courage.",
-        "Bold first, tidy later. The lion's table has room for you.",
-        "Heart ahead, hands steady—Gryffindor will make use of both."
-      ],
-      Slytherin: [
-        "Not just fast—calculating. The green corridors approve.",
-        "Aim first, then means. Slytherin knows what to do with minds like yours.",
-        "Ambition and craft walk together—welcome to the House of serpents."
-      ],
-      Ravenclaw: [
-        "You can hear answers in the rhythm. Blue is your language.",
-        "Precision over spectacle. The tower lights for you.",
-        "Curiosity makes you precise, not scattered—quills at the ready."
-      ],
-      Hufflepuff: [
-        "Impatient hands stayed outside; steady hands came in with you.",
-        "Patience isn't slow—it's refusal to retreat. Badger's hearth is warm.",
-        "Fair, diligent, faithful—yellow light nods in agreement."
-      ]
-    },
-    preferColor: [
-      "You played like {BH}, yet you kept looking toward {CH}. The Hat listens—{CH}.",
-      "Skill pushes you to {BH}, but your step leans to {CH}. Tonight, I trust your choice.",
-      "In contests I'd send you to {BH}; in belonging, I hand you to {CH}."
+ const HatLines = {
+  agree: {
+    Gryffindor: [
+      "You rush, but you don't fear the fall. Red suits your courage.",
+      "Bold first, tidy later. The lion's table has room for you.",
+      "Heart ahead, hands steady—Gryffindor will make use of both."
     ],
-    preferBehavior: [
-      "Colors speak—but so do your hands. You belong with {BH}.",
-      "You picked {CH}, but every motion argued for {BH}. You'll grow higher there.",
-      "Interests may change; nature rarely does. Go {BH}, and let them see your pace."
+    Slytherin: [
+      "Not just fast—calculating. The green corridors approve.",
+      "Aim first, then means. Slytherin knows what to do with minds like yours.",
+      "Ambition and craft walk together—welcome to the House of serpents."
     ],
-    snitch: [
-      "Gold flashed—and you didn't flinch. Others call it luck; I call it timing.",
-      "Before the bell you reached—courage met instinct."
+    Ravenclaw: [
+      "You can hear answers in the rhythm. Blue is your language.",
+      "Precision over spectacle. The tower lights for you.",
+      "Curiosity makes you precise, not scattered—quills at the ready."
+    ],
+    Hufflepuff: [
+      "Impatient hands stayed outside; steady hands came in with you.",
+      "Patience isn't slow—it's refusal to retreat. Badger's hearth is warm.",
+      "Fair, diligent, faithful—yellow light nods in agreement."
     ]
-  };
+  },
+
+  // When behavior BH ≠ color CH — the Hat tends to respect color (your heart)
+  preferColor: [
+    "You play like {BH}, yet your gaze keeps seeking {CH}. I hear the voice in your chest—{CH}.",
+    "Skill pushes you toward {BH}, but preference pulls you to {CH}. Belonging is a map of the heart; tonight, {CH}.",
+    "If this were a contest, I'd write {BH}; but this is a homecoming, so I hand you to {CH}.",
+    "Your hands speak {BH}, your eyes whisper {CH}. The Hat knows: where the heart points, the House begins—{CH}.",
+    "{BH} would applaud your craft; {CH} will keep your name. Choose the place that feels like home: {CH}.",
+    "In your rhythm I hear {BH}; in your stillness I see {CH}. Let longing have the final word—{CH}.",
+    "You showed me victory; you hid your choice in colors. I don't ignore petitioners—step to {CH}.",
+    "You could thrive with {BH}; you’ll belong with {CH}. Belonging outlasts applause—{CH}.",
+    "Each reach was {BH}, each glance searched {CH}. I understand—{CH}.",
+    "Power may carry you to {BH}, but your steps return to {CH}. The door is open—{CH}.",
+    "Technique writes {BH} in bold, but your grin spells {CH}. Very well—{CH} it is.",
+    "You danced like {BH}, daydreamed like {CH}. The Hat will not argue with a true wish—{CH}.",
+    "You'd be praised in {BH}; you’d be yourself in {CH}. I prefer the latter.",
+    "Head says {BH}, heartbeat says {CH}. I trust the louder instrument tonight."
+  ],
+
+  // When behavior BH ≠ color CH — the Hat rules by merit (your nature)
+  preferBehavior: [
+    "Colors speak, but actions don’t lie. You're unmistakably {BH}; don’t squeeze into {CH}'s robes.",
+    "You chose {CH}'s orbs, but your hands declare {BH}. You’ll grow taller there.",
+    "Interests can change; temperament rarely does. Walk to {BH} and let your talent breathe.",
+    "{CH} smiles at you; {BH} stands and applauds. Take the seat that was waiting.",
+    "If I were to wager on your ascent, I'd write {BH}. The Hat does not misjudge knack.",
+    "Your timing, your restraint, your surge—all in {BH}'s tongue. Stop arguing with instinct.",
+    "{CH} looks fine on you; your echo rings brightest in {BH}'s hall.",
+    "You’d be comfortable in {CH}; you’ll be luminous in {BH}. I choose the light.",
+    "I've heard many wishes, but I trust what you just did. Crown it {BH}.",
+    "Let colors rest a moment—your hands already voted for {BH}.",
+    "You reached like {BH}, recovered like {BH}, endured like {BH}. The banner agrees.",
+    "Your map points {CH}, your compass points {BH}. Follow the compass.",
+    "Preference is a lantern; nature is a sunrise. Step into {BH}.",
+    "You can borrow {CH}'s colors; you can only keep {BH}'s stride."
+  ],
+
+  snitch: [
+    "Gold flashed—and you didn't flinch. Others call it luck; I call it timing.",
+    "Before the bell you reached—courage met instinct."
+  ]
+};
+
   function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
   function sortWithNarrative(){
