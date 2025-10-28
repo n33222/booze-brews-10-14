@@ -41,7 +41,7 @@
   .modal h2{margin-top:0}
   .modal input,.modal select, .modal textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#111827;color:#fff}
   .modal .actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
-  /* House Reveal — 底部面板 + 帽子 + 可點關閉 + 5s */
+  /* House Reveal */
   .reveal{display:none;position:fixed;inset:0;z-index:1200;align-items:center;justify-content:center;background:rgba(0,0,0,.85)}
   .reveal .beam{position:absolute;inset:0;opacity:.0;mix-blend-mode:screen;transition:opacity .2s ease}
   .reveal .panel{
@@ -81,7 +81,6 @@
       <button class="btn" id="focusBtn" title="Canvas fullscreen (non-browser)">Focus Mode</button>
       <button class="btn" id="staffBtn" title="Open Staff Panel">Staff Panel</button>
       <button class="btn" id="exportBtn" title="Export leaderboard CSV">Export CSV</button>
-      <!-- SFX 切換隱藏；保留功能 -->
       <label class="pill" id="sfxWrap" style="display:none;align-items:center;gap:6px;">
         <input id="sfxToggle" type="checkbox" checked/> SFX
       </label>
@@ -92,7 +91,6 @@
     <canvas id="game" width="960" height="540"></canvas>
   </div>
 
-  <!-- How to Play -->
   <div class="card">
     <h2>How to Play</h2>
     <p><b>“Temporary Permit · Sorting In Progress”</b> — By special decree, our bar hosts a one-night Sorting trial. In 45 seconds, falling charms and roaming shadows will test your reflex; rare House orbs whisper your leanings. Catch the good, dodge the grim, and let the Hat hear your rhythm.</p>
@@ -121,7 +119,7 @@
   </div>
 </div>
 
-<!-- House Reveal（加分類帽圖片） -->
+<!-- House Reveal -->
 <div class="reveal" id="reveal" title="Tap to continue">
   <div class="beam" id="revealBeam"></div>
   <img class="hat" id="revealHat" src="assets/sorting_hat.png" alt="Sorting Hat"/>
@@ -150,7 +148,7 @@
   </div>
 </div>
 
-<!-- Staff 面板 -->
+<!-- Staff Panel -->
 <div class="modal-bg" id="staffModal">
   <div class="modal">
     <h2>Staff Panel</h2>
@@ -176,6 +174,8 @@
 <script>
 (function(){
   /* ========= SETTINGS ========= */
+  const ALL_ICON_SCALE = 1.40; // Global visual scale for ALL icons (render only). 1.00=original, 1.10=+10%, 0.85=-15%
+
   let REWARDS = [
     { condition: s=>s<300,            prize:"Free Shot" },
     { condition: s=>s>=780 && s<1200, prize:"10% OFF This Cocktail" },
@@ -353,7 +353,11 @@
     }
 
     entities.forEach(e=>{
-      const s=e.r*2, px=e.x-e.r, py=e.y-e.r;
+      /* --- Global visual scale applied here (does NOT change hitbox) --- */
+      const base = e.r * 2;
+      const s = base * ALL_ICON_SCALE;   // visual size only
+      const px = e.x - (s / 2), py = e.y - (s / 2);
+
       const img = images[e.type];
 
       drawGlow(e.x, e.y, e.r*1.05, 'rgba(255,255,255,0.12)');
@@ -483,72 +487,66 @@
     return arr[0].v ? arr[0].house : null;
   }
 
- const HatLines = {
-  agree: {
-    Gryffindor: [
-      "You rush, but you don't fear the fall. Red suits your courage.",
-      "Bold first, tidy later. The lion's table has room for you.",
-      "Heart ahead, hands steady—Gryffindor will make use of both."
+  const HatLines = {
+    agree: {
+      Gryffindor: [
+        "You rush, but you don't fear the fall. Red suits your courage.",
+        "Bold first, tidy later. The lion's table has room for you.",
+        "Heart ahead, hands steady—Gryffindor will make use of both."
+      ],
+      Slytherin: [
+        "Not just fast—calculating. The green corridors approve.",
+        "Aim first, then means. Slytherin knows what to do with minds like yours.",
+        "Ambition and craft walk together—welcome to the House of serpents."
+      ],
+      Ravenclaw: [
+        "You can hear answers in the rhythm. Blue is your language.",
+        "Precision over spectacle. The tower lights for you.",
+        "Curiosity makes you precise, not scattered—quills at the ready."
+      ],
+      Hufflepuff: [
+        "Impatient hands stayed outside; steady hands came in with you.",
+        "Patience isn't slow—it's refusal to retreat. Badger's hearth is warm.",
+        "Fair, diligent, faithful—yellow light nods in agreement."
+      ]
+    },
+    preferColor: [
+      "You play like {BH}, yet your gaze keeps seeking {CH}. I hear the voice in your chest—{CH}.",
+      "Skill pushes you toward {BH}, but preference pulls you to {CH}. Belonging is a map of the heart; tonight, {CH}.",
+      "If this were a contest, I'd write {BH}; but this is a homecoming, so I hand you to {CH}.",
+      "Your hands speak {BH}, your eyes whisper {CH}. The Hat knows: where the heart points, the House begins—{CH}.",
+      "{BH} would applaud your craft; {CH} will keep your name. Choose the place that feels like home: {CH}.",
+      "In your rhythm I hear {BH}; in your stillness I see {CH}. Let longing have the final word—{CH}.",
+      "You showed me victory; you hid your choice in colors. I don't ignore petitioners—step to {CH}.",
+      "You could thrive with {BH}; you’ll belong with {CH}. Belonging outlasts applause—{CH}.",
+      "Each reach was {BH}, each glance searched {CH}. I understand—{CH}.",
+      "Power may carry you to {BH}, but your steps return to {CH}. The door is open—{CH}.",
+      "Technique writes {BH} in bold, but your grin spells {CH}. Very well—{CH} it is.",
+      "You danced like {BH}, daydreamed like {CH}. The Hat will not argue with a true wish—{CH}.",
+      "You'd be praised in {BH}; you’d be yourself in {CH}. I prefer the latter.",
+      "Head says {BH}, heartbeat says {CH}. I trust the louder instrument tonight."
     ],
-    Slytherin: [
-      "Not just fast—calculating. The green corridors approve.",
-      "Aim first, then means. Slytherin knows what to do with minds like yours.",
-      "Ambition and craft walk together—welcome to the House of serpents."
+    preferBehavior: [
+      "Colors speak, but actions don’t lie. You're unmistakably {BH}; don’t squeeze into {CH}'s robes.",
+      "You chose {CH}'s orbs, but your hands declare {BH}. You’ll grow taller there.",
+      "Interests can change; temperament rarely does. Walk to {BH} and let your talent breathe.",
+      "{CH} smiles at you; {BH} stands and applauds. Take the seat that was waiting.",
+      "If I were to wager on your ascent, I'd write {BH}. The Hat does not misjudge knack.",
+      "Your timing, your restraint, your surge—all in {BH}'s tongue. Stop arguing with instinct.",
+      "{CH} looks fine on you; your echo rings brightest in {BH}'s hall.",
+      "You’d be comfortable in {CH}; you’ll be luminous in {BH}. I choose the light.",
+      "I've heard many wishes, but I trust what you just did. Crown it {BH}.",
+      "Let colors rest a moment—your hands already voted for {BH}.",
+      "You reached like {BH}, recovered like {BH}, endured like {BH}. The banner agrees.",
+      "Your map points {CH}, your compass points {BH}. Follow the compass.",
+      "Preference is a lantern; nature is a sunrise. Step into {BH}.",
+      "You can borrow {CH}'s colors; you can only keep {BH}'s stride."
     ],
-    Ravenclaw: [
-      "You can hear answers in the rhythm. Blue is your language.",
-      "Precision over spectacle. The tower lights for you.",
-      "Curiosity makes you precise, not scattered—quills at the ready."
-    ],
-    Hufflepuff: [
-      "Impatient hands stayed outside; steady hands came in with you.",
-      "Patience isn't slow—it's refusal to retreat. Badger's hearth is warm.",
-      "Fair, diligent, faithful—yellow light nods in agreement."
+    snitch: [
+      "Gold flashed—and you didn't flinch. Others call it luck; I call it timing.",
+      "Before the bell you reached—courage met instinct."
     ]
-  },
-
-  // When behavior BH ≠ color CH — the Hat tends to respect color (your heart)
-  preferColor: [
-    "You play like {BH}, yet your gaze keeps seeking {CH}. I hear the voice in your chest—{CH}.",
-    "Skill pushes you toward {BH}, but preference pulls you to {CH}. Belonging is a map of the heart; tonight, {CH}.",
-    "If this were a contest, I'd write {BH}; but this is a homecoming, so I hand you to {CH}.",
-    "Your hands speak {BH}, your eyes whisper {CH}. The Hat knows: where the heart points, the House begins—{CH}.",
-    "{BH} would applaud your craft; {CH} will keep your name. Choose the place that feels like home: {CH}.",
-    "In your rhythm I hear {BH}; in your stillness I see {CH}. Let longing have the final word—{CH}.",
-    "You showed me victory; you hid your choice in colors. I don't ignore petitioners—step to {CH}.",
-    "You could thrive with {BH}; you’ll belong with {CH}. Belonging outlasts applause—{CH}.",
-    "Each reach was {BH}, each glance searched {CH}. I understand—{CH}.",
-    "Power may carry you to {BH}, but your steps return to {CH}. The door is open—{CH}.",
-    "Technique writes {BH} in bold, but your grin spells {CH}. Very well—{CH} it is.",
-    "You danced like {BH}, daydreamed like {CH}. The Hat will not argue with a true wish—{CH}.",
-    "You'd be praised in {BH}; you’d be yourself in {CH}. I prefer the latter.",
-    "Head says {BH}, heartbeat says {CH}. I trust the louder instrument tonight."
-  ],
-
-  // When behavior BH ≠ color CH — the Hat rules by merit (your nature)
-  preferBehavior: [
-    "Colors speak, but actions don’t lie. You're unmistakably {BH}; don’t squeeze into {CH}'s robes.",
-    "You chose {CH}'s orbs, but your hands declare {BH}. You’ll grow taller there.",
-    "Interests can change; temperament rarely does. Walk to {BH} and let your talent breathe.",
-    "{CH} smiles at you; {BH} stands and applauds. Take the seat that was waiting.",
-    "If I were to wager on your ascent, I'd write {BH}. The Hat does not misjudge knack.",
-    "Your timing, your restraint, your surge—all in {BH}'s tongue. Stop arguing with instinct.",
-    "{CH} looks fine on you; your echo rings brightest in {BH}'s hall.",
-    "You’d be comfortable in {CH}; you’ll be luminous in {BH}. I choose the light.",
-    "I've heard many wishes, but I trust what you just did. Crown it {BH}.",
-    "Let colors rest a moment—your hands already voted for {BH}.",
-    "You reached like {BH}, recovered like {BH}, endured like {BH}. The banner agrees.",
-    "Your map points {CH}, your compass points {BH}. Follow the compass.",
-    "Preference is a lantern; nature is a sunrise. Step into {BH}.",
-    "You can borrow {CH}'s colors; you can only keep {BH}'s stride."
-  ],
-
-  snitch: [
-    "Gold flashed—and you didn't flinch. Others call it luck; I call it timing.",
-    "Before the bell you reached—courage met instinct."
-  ]
-};
-
+  };
   function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
   function sortWithNarrative(){
@@ -713,7 +711,7 @@
   staff.clear.onclick=()=>{ if(confirm('Clear leaderboard?')){ localStorage.removeItem(LS_BOARD); renderBoard(); alert('Cleared.'); } };
   staff.close.onclick=()=>{ staffModal.style.display='none'; };
 
-  /* ========= Save（強化版） ========= */
+  /* ========= Save ========= */
   UI.saveBtn.onclick = () => {
     try {
       const name = (UI.playerName.value || "Guest").trim().slice(0, 24);
