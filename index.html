@@ -39,7 +39,7 @@
   .modal{width:min(92%,520px);background:#1f2937;border:1px solid var(--line);border-radius:16px;padding:18px;
     box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:left}
   .modal h2{margin-top:0}
-  .modal input,.modal select, .modal textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#111827;color:#fff}
+  .modal input,.modal select,.modal textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#111827;color:#fff}
   .modal .actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
   /* House Reveal */
   .reveal{display:none;position:fixed;inset:0;z-index:1200;align-items:center;justify-content:center;background:rgba(0,0,0,.85)}
@@ -51,13 +51,13 @@
   }
   .reveal .hat{
     position:absolute;left:50%;transform:translateX(-50%);bottom:calc(6vh + 180px);
-    width:min(38vw, 320px);max-width:340px;filter: drop-shadow(0 12px 40px rgba(0,0,0,.65));
+    width:min(38vw, 320px);max-width:340px;filter:drop-shadow(0 12px 40px rgba(0,0,0,.65));
     opacity:.0;transition:opacity .35s ease;
   }
   .reveal.show .hat{opacity:1}
   .reveal .name{font-size:44px;font-weight:900;letter-spacing:.04em;text-shadow:0 6px 40px rgba(0,0,0,.8);margin:0 0 4px}
   .reveal .line{margin:6px 0 0;opacity:0;transition:opacity .3s ease}
-  .reveal.show .beam{opacity:.9;animation: sweep 2.6s ease forwards}
+  .reveal.show .beam{opacity:.9;animation:sweep 2.6s ease forwards}
   .reveal.show .line1{opacity:1;transition-delay:.7s}
   .reveal.show .line2{opacity:1;transition-delay:1.2s}
   .reveal .hint{margin-top:8px;color:#aab0c0;font-size:12px}
@@ -153,7 +153,7 @@
   <div class="modal">
     <h2>Staff Panel</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div><label>Free Shot &lt; <input id="th_free" type="number" min="0"/></label></div>
+      <div><label>Free Shot ≥ <input id="th_free" type="number" min="0"/></label></div>
       <div><label>10% OFF ≥ <input id="th_off" type="number" min="0"/></label></div>
       <div><label>Whole Bottle ≥ <input id="th_bottle" type="number" min="0"/></label></div>
       <div></div>
@@ -176,10 +176,14 @@
   /* ========= SETTINGS ========= */
   const ALL_ICON_SCALE = 1.20; // Global visual scale for ALL icons (render only). 1.00=original, 1.10=+10%, 0.85=-15%
 
+  // 門檻集中管理（員工面板會更新這裡）
+  const THRESHOLDS = { free: 300, off: 780, bottle: 1200 };
+
+  // 由高到低判斷，避免較低獎吃掉高獎
   let REWARDS = [
-    { condition: s=>s<300,            prize:"Free Shot" },
-    { condition: s=>s>=780 && s<1200, prize:"10% OFF This Cocktail" },
-    { condition: s=>s>=1200,          prize:"A Whole Bottle of Liquor", limit:3 }
+    { condition: s => s >= THRESHOLDS.bottle, prize: "A Whole Bottle of Liquor", limit: 3 },
+    { condition: s => s >= THRESHOLDS.off,    prize: "10% OFF This Cocktail" },
+    { condition: s => s >= THRESHOLDS.free,   prize: "Free Shot" }
   ];
   const BOTTLE_PRIZE = "A Whole Bottle of Liquor";
   const ROUND_SECONDS = 45;
@@ -353,11 +357,9 @@
     }
 
     entities.forEach(e=>{
-      /* --- Global visual scale applied here (does NOT change hitbox) --- */
       const base = e.r * 2;
       const s = base * ALL_ICON_SCALE;   // visual size only
       const px = e.x - (s / 2), py = e.y - (s / 2);
-
       const img = images[e.type];
 
       drawGlow(e.x, e.y, e.r*1.05, 'rgba(255,255,255,0.12)');
@@ -570,6 +572,7 @@
 
   /* ========= Rewards & End ========= */
   function getReward(s){
+    // 高到低檢查，先命中高獎
     for(const r of REWARDS){
       if(r.condition(s)){
         if(r.limit && r.prize===BOTTLE_PRIZE){
@@ -678,29 +681,39 @@
   function exitFocus(){ if(!inFocus) return; inFocus=false; focusMask.style.display='none'; focusUI.style.display='none'; activeCanvas = canvas; activeCtx = ctx; resizeAll(); }
 
   function openStaff(){
-    const free = (REWARDS.find(r=>r.prize==="Free Shot")||{}).condition;
-    const off  = (REWARDS.find(r=>r.prize.includes("10%"))||{}).condition;
-    const bot  = (REWARDS.find(r=>r.prize===BOTTLE_PRIZE)||{}).condition;
-    staff.th_free.value = guessThreshold(free, 779);
-    staff.th_off.value  = guessThreshold(off, 780);
-    staff.th_bottle.value = guessThreshold(bot, 1200);
+    // 用目前門檻帶入面板
+    staff.th_free.value   = THRESHOLDS.free;
+    staff.th_off.value    = THRESHOLDS.off;
+    staff.th_bottle.value = THRESHOLDS.bottle;
     staff.bias_g.value = HOUSE_BIAS.Gryffindor;
     staff.bias_s.value = HOUSE_BIAS.Slytherin;
     staff.bias_r.value = HOUSE_BIAS.Ravenclaw;
     staff.bias_h.value = HOUSE_BIAS.Hufflepuff;
     staffModal.style.display='flex';
   }
-  function guessThreshold(fn, def){ try{ const s = String(fn); const m = s.match(/s\s*([<>]=?)\s*(\d+)/); return m? Number(m[2]) : def; }catch{ return def; } }
 
   staff.save.onclick=()=>{
-    const tFree = Number(staff.th_free.value||0);
-    const tOff  = Number(staff.th_off.value||0);
-    const tBottle = Number(staff.th_bottle.value||0);
+    // 防呆排序：bottle ≥ off ≥ free ≥ 0
+    const tFreeRaw   = Number(staff.th_free.value   || 300);
+    const tOffRaw    = Number(staff.th_off.value    || 780);
+    const tBottleRaw = Number(staff.th_bottle.value || 1200);
+
+    const tFree   = Math.max(0, tFreeRaw);
+    const tOff    = Math.max(tFree, tOffRaw);
+    const tBottle = Math.max(tOff, tBottleRaw);
+
+    // 更新全域門檻
+    THRESHOLDS.free = tFree;
+    THRESHOLDS.off = tOff;
+    THRESHOLDS.bottle = tBottle;
+
+    // 由高到低重建獎勵，避免互吃
     REWARDS = [
-      { condition: s=>s<tFree, prize:"Free Shot" },
-      { condition: s=>s>=tOff && s<999999, prize:"10% OFF This Cocktail" },
-      { condition: s=>s>=tBottle, prize:"A Whole Bottle of Liquor", limit:3 }
+      { condition: s => s >= THRESHOLDS.bottle, prize: "A Whole Bottle of Liquor", limit: 3 },
+      { condition: s => s >= THRESHOLDS.off,    prize: "10% OFF This Cocktail" },
+      { condition: s => s >= THRESHOLDS.free,   prize: "Free Shot" }
     ];
+
     HOUSE_BIAS.Gryffindor = clamp(-50, 50, Number(staff.bias_g.value||0));
     HOUSE_BIAS.Slytherin  = clamp(-50, 50, Number(staff.bias_s.value||0));
     HOUSE_BIAS.Ravenclaw  = clamp(-50, 50, Number(staff.bias_r.value||0));
@@ -708,7 +721,7 @@
     alert('Saved.');
   };
   staff.export.onclick=toCSV;
-  staff.clear.onclick=()=>{ if(confirm('Clear leaderboard?')){ localStorage.removeItem(LS_BOARD); renderBoard(); alert('Cleared.'); } };
+  staff.clear.onclick=()=>{ if(confirm('Clear leaderboard?')){ localStorage.removeItem(LS_BOARD); alert('Cleared.'); renderBoard(); } };
   staff.close.onclick=()=>{ staffModal.style.display='none'; };
 
   /* ========= Save ========= */
