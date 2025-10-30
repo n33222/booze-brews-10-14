@@ -681,7 +681,7 @@
     const free = (REWARDS.find(r=>r.prize==="Free Shot")||{}).condition;
     const off  = (REWARDS.find(r=>r.prize.includes("10%"))||{}).condition;
     const bot  = (REWARDS.find(r=>r.prize===BOTTLE_PRIZE)||{}).condition;
-    staff.th_free.value = guessThreshold(free, 300);
+    staff.th_free.value = guessThreshold(free, 779);
     staff.th_off.value  = guessThreshold(off, 780);
     staff.th_bottle.value = guessThreshold(bot, 1200);
     staff.bias_g.value = HOUSE_BIAS.Gryffindor;
