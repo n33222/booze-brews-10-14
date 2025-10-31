@@ -100,7 +100,7 @@
       <li><b>House Orbs</b>: no points; affect House only (Red→Gryffindor, Green→Slytherin, Blue→Ravenclaw, Yellow→Hufflepuff).</li>
       <li><b>Combo</b>: consecutive hits raise combo; tapping empty space or a creature resets it.</li>
       <li><b>Sorting</b>: behavior + color preference; if they disagree, the Hat usually leans to your choice.</li>
-      <li><b>Rewards</b>: thresholds configurable. Typical: Free Shot / 10% OFF / Whole Bottle (limited).</li>
+      <li><b>Rewards</b>: typical: <b>Free Shot</b> / <b>20% OFF</b> / <b>Whole Bottle</b> (limited).</li>
       <li><b>Leaderboard</b>: nickname accumulates total points; nightly top wins the mystery prize.</li>
       <li><b>Admission</b>: each <b>House Drink</b> or <b>Signature Cocktail</b> grants one attempt.</li>
     </ol>
@@ -154,7 +154,7 @@
     <h2>Staff Panel</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div><label>Free Shot ≥ <input id="th_free" type="number" min="0"/></label></div>
-      <div><label>10% OFF ≥ <input id="th_off" type="number" min="0"/></label></div>
+      <div><label>20% OFF ≥ <input id="th_off20" type="number" min="0"/></label></div>
       <div><label>Whole Bottle ≥ <input id="th_bottle" type="number" min="0"/></label></div>
       <div></div>
       <div><label>Bias Gryffindor % <input id="bias_g" type="number" min="-50" max="50" value="0"/></label></div>
@@ -177,13 +177,13 @@
   const ALL_ICON_SCALE = 1.20; // Global visual scale for ALL icons (render only). 1.00=original, 1.10=+10%, 0.85=-15%
 
   // 門檻集中管理（員工面板會更新這裡）
-  const THRESHOLDS = { free: 300, off: 780, bottle: 1200 };
+  const THRESHOLDS = { free: 300, off20: 780, bottle: 1200 };
 
-  // 由高到低判斷，避免較低獎吃掉高獎
+  // 由高到低判斷，並將 20% OFF 限定於 [off20, bottle)
   let REWARDS = [
-    { condition: s => s >= THRESHOLDS.bottle, prize: "A Whole Bottle of Liquor", limit: 3 },
-    { condition: s => s >= THRESHOLDS.off,    prize: "10% OFF This Cocktail" },
-    { condition: s => s >= THRESHOLDS.free,   prize: "Free Shot" }
+    { condition: s => s >= THRESHOLDS.bottle,                          prize: "A Whole Bottle of Liquor", limit: 3 },
+    { condition: s => s >= THRESHOLDS.off20 && s < THRESHOLDS.bottle,  prize: "20% OFF This Cocktail" },
+    { condition: s => s >= THRESHOLDS.free && s < THRESHOLDS.off20,    prize: "Free Shot" }
   ];
   const BOTTLE_PRIZE = "A Whole Bottle of Liquor";
   const ROUND_SECONDS = 45;
@@ -235,7 +235,7 @@
   };
   const staffModal = el('staffModal');
   const staff = {
-    th_free:el('th_free'), th_off:el('th_off'), th_bottle:el('th_bottle'),
+    th_free:el('th_free'), th_off20:el('th_off20'), th_bottle:el('th_bottle'),
     bias_g:el('bias_g'), bias_s:el('bias_s'), bias_r:el('bias_r'), bias_h:el('bias_h'),
     save:el('staffSave'), close:el('staffClose'), export:el('staffExport'), clear:el('staffClear')
   };
@@ -572,7 +572,6 @@
 
   /* ========= Rewards & End ========= */
   function getReward(s){
-    // 高到低檢查，先命中高獎
     for(const r of REWARDS){
       if(r.condition(s)){
         if(r.limit && r.prize===BOTTLE_PRIZE){
@@ -683,7 +682,7 @@
   function openStaff(){
     // 用目前門檻帶入面板
     staff.th_free.value   = THRESHOLDS.free;
-    staff.th_off.value    = THRESHOLDS.off;
+    staff.th_off20.value  = THRESHOLDS.off20;
     staff.th_bottle.value = THRESHOLDS.bottle;
     staff.bias_g.value = HOUSE_BIAS.Gryffindor;
     staff.bias_s.value = HOUSE_BIAS.Slytherin;
@@ -693,25 +692,25 @@
   }
 
   staff.save.onclick=()=>{
-    // 防呆排序：bottle ≥ off ≥ free ≥ 0
-    const tFreeRaw   = Number(staff.th_free.value   || 300);
-    const tOffRaw    = Number(staff.th_off.value    || 780);
-    const tBottleRaw = Number(staff.th_bottle.value || 1200);
+    // 防呆排序：bottle ≥ off20 ≥ free ≥ 0
+    const tFreeRaw    = Number(staff.th_free.value   || 300);
+    const tOff20Raw   = Number(staff.th_off20.value  || 780);
+    const tBottleRaw  = Number(staff.th_bottle.value || 1200);
 
-    const tFree   = Math.max(0, tFreeRaw);
-    const tOff    = Math.max(tFree, tOffRaw);
-    const tBottle = Math.max(tOff, tBottleRaw);
+    const tFree    = Math.max(0, tFreeRaw);
+    const tOff20   = Math.max(tFree, tOff20Raw);
+    const tBottle  = Math.max(tOff20, tBottleRaw);
 
     // 更新全域門檻
-    THRESHOLDS.free = tFree;
-    THRESHOLDS.off = tOff;
+    THRESHOLDS.free   = tFree;
+    THRESHOLDS.off20  = tOff20;
     THRESHOLDS.bottle = tBottle;
 
-    // 由高到低重建獎勵，避免互吃
+    // 由高到低重建獎勵；20% OFF 僅作用在 [off20, bottle)
     REWARDS = [
-      { condition: s => s >= THRESHOLDS.bottle, prize: "A Whole Bottle of Liquor", limit: 3 },
-      { condition: s => s >= THRESHOLDS.off,    prize: "10% OFF This Cocktail" },
-      { condition: s => s >= THRESHOLDS.free,   prize: "Free Shot" }
+      { condition: s => s >= THRESHOLDS.bottle,                         prize: "A Whole Bottle of Liquor", limit: 3 },
+      { condition: s => s >= THRESHOLDS.off20 && s < THRESHOLDS.bottle, prize: "20% OFF This Cocktail" },
+      { condition: s => s >= THRESHOLDS.free && s < THRESHOLDS.off20,   prize: "Free Shot" }
     ];
 
     HOUSE_BIAS.Gryffindor = clamp(-50, 50, Number(staff.bias_g.value||0));
